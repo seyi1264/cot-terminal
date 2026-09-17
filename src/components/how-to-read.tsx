@@ -40,8 +40,8 @@ export function HowToRead({
             <p>
               <strong className="font-medium text-fg">Difference = spec net − commercial net.</strong>{" "}
               Two minuses make a plus: specs long and commercials short is a combined institutional
-              bid. The 3-year index (0–100) flags extremes; the 13-week average damps noise. When
-              a book approaches its 3-year high or low, profit taking is the base case.
+              bid. The all-history index (0–100) flags extremes; the 13-week average damps noise.
+              When a book approaches its historical high or low, profit taking is the base case.
             </p>
             <p>
               <strong className="font-medium text-fg">Retail divergence</strong> is small specs

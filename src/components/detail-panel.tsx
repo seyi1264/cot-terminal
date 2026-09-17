@@ -85,7 +85,7 @@ function DetailBody({
           <Stat label="13-week WO avg" value={formatSigned(report.woAvg13)} />
         </section>
 
-        <IndexBar value={report.woIndex} label="White Oak difference, 3-year index (0–100)" />
+        <IndexBar value={report.woIndex} label="White Oak difference, all-history index (0–100)" />
 
         <div className="grid gap-3 md:grid-cols-3">
           <GroupStats

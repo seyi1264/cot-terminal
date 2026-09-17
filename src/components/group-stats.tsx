@@ -42,7 +42,7 @@ export function GroupStats({
         <Row label="13-week avg" value={formatSigned(snap.avg13)} />
       </div>
       <div className="mt-4">
-        <IndexBar value={snap.index} label="3-year index" />
+        <IndexBar value={snap.index} label="All-history index" />
       </div>
     </section>
   );

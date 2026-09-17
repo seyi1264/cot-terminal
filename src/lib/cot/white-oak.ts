@@ -121,8 +121,8 @@ function snapshot(
   const last13 = nets.slice(-AVG_WINDOW);
   const avg13 = mean(last13);
   const index = cotIndex(g.net, window);
-  const min156 = Math.min(...window);
-  const max156 = Math.max(...window);
+  const minAll = Math.min(...window);
+  const maxAll = Math.max(...window);
   const total = g.long + g.short;
   const oi = latest.oi || 1;
   return {
@@ -139,8 +139,8 @@ function snapshot(
     index,
     avg13,
     vs13: g.net - avg13,
-    min156,
-    max156,
+    minAll,
+    maxAll,
     flow: classifyFlow(g.dLong, g.dShort, g.dNet, g.net, group),
   };
 }
@@ -216,10 +216,10 @@ function scoreReading(
 
   if (comm.index <= 20) {
     score += 2;
-    flags.push("Commercials at a 3-year short extreme — hedging a rise");
+    flags.push("Commercials at an all-history short extreme — hedging a rise");
   } else if (comm.index >= 80) {
     score -= 2;
-    flags.push("Commercials at a 3-year long extreme — hedging a decline");
+    flags.push("Commercials at an all-history long extreme — hedging a decline");
   }
 
   if (nc.index >= 80) {
@@ -264,7 +264,7 @@ function scoreReading(
   }
 
   if (nc.index >= 90 || nc.index <= 10 || comm.index >= 90 || comm.index <= 10) {
-    flags.push("Extreme reading — 3-year range, profit-taking risk");
+    flags.push("Extreme reading — all-history range, profit-taking risk");
   }
 
   score = Math.max(-10, Math.min(10, score));
@@ -305,10 +305,10 @@ function narrative(
       ? `${def.symbol} — ${stanceLabel(stance).toLowerCase()}`
       : `${def.symbol} — ${pairRead}`;
   const extreme =
-    woIndex >= 80 ? "stretched to the bid side of its 3-year range" :
-    woIndex <= 20 ? "stretched to the offer side of its 3-year range" :
-    woIndex >= 65 ? "leaning bid versus the 3-year range" :
-    woIndex <= 35 ? "leaning offer versus the 3-year range" :
+    woIndex >= 80 ? "stretched to the bid side of its all-history range" :
+    woIndex <= 20 ? "stretched to the offer side of its all-history range" :
+    woIndex >= 65 ? "leaning bid versus the all-history range" :
+    woIndex <= 35 ? "leaning offer versus the all-history range" :
     "mid-range — not an extreme";
 
   const parts = [

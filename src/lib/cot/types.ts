@@ -75,8 +75,8 @@ export type GroupSnapshot = {
   index: number;
   avg13: number;
   vs13: number;
-  min156: number;
-  max156: number;
+  minAll: number;
+  maxAll: number;
   flow: FlowReading;
 };
 

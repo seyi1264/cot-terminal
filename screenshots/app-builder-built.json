@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Oak & Ledger",
+      "hasCanvas": false,
+      "bodyTextLen": 4799,
+      "bodyTextHash": "47b9b95e4c26a4dfbf82fc2e4f655e6caa39868d754bed6a0da5189f6b1dce3b",
+      "bodyTextPrefix": "Oak & Ledger INSTITUTIONAL POSITIONING As of 8 Sept 2026 How to ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Oak & Ledger",
+      "hasCanvas": false,
+      "bodyTextLen": 4799,
+      "bodyTextHash": "ae7be8e7f17b05b9af2571a60cf00bcdc1f6bb4ef7144561852a75eb3f18e866",
+      "bodyTextPrefix": "Oak & Ledger INSTITUTIONAL POSITIONING How to read Refresh What ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}

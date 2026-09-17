@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-bg: #0e0d0b;
+  --color-bg-elevated: #161410;
+  --color-bg-subtle: #1c1914;
+  --color-fg: #ebe6dc;
+  --color-muted: #9a9388;
+  --color-subtle: #6e685e;
+  --color-border: #2a2620;
+  --color-accent: #c8c0b0;
+  --color-accent-fg: #0e0d0b;
+  --color-bid: #6b8f71;
+  --color-bid-fg: #0e0d0b;
+  --color-offer: #b45a4a;
+  --color-offer-fg: #0e0d0b;
+  --color-ring: #c8c0b0;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 28px;
+
+  --shadow-border: 0 0 0 1px rgb(235 230 220 / 0.08);
+  --shadow-border-hover: 0 0 0 1px rgb(235 230 220 / 0.14);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-quick: 150ms;
+  --motion-fast: 250ms;
+  --motion-slow: 400ms;
+}
+
+@layer base {
+  html {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgb(61 52 40 / 0.35), transparent 55%),
+      var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    font-family: var(--font-display);
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 40%, transparent);
+    color: var(--color-fg);
+  }
+}
+
+.stagger-card {
+  animation: fade-up var(--motion-slow) var(--ease-out) both;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.stagger-card:nth-child(1) { animation-delay: 0ms; }
+.stagger-card:nth-child(2) { animation-delay: 40ms; }
+.stagger-card:nth-child(3) { animation-delay: 80ms; }
+.stagger-card:nth-child(4) { animation-delay: 120ms; }
+.stagger-card:nth-child(5) { animation-delay: 160ms; }
+.stagger-card:nth-child(6) { animation-delay: 200ms; }
+.stagger-card:nth-child(7) { animation-delay: 240ms; }
+.stagger-card:nth-child(8) { animation-delay: 280ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}

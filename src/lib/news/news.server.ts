@@ -1,7 +1,6 @@
-import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import type { Stance } from "@/lib/cot/types";
 import { normalizeSentiment, scoreAlignment, summarizeAlignment } from "./alignment.ts";
+import type { NewsStory } from "./types";
 const INSTRUMENT_KEYWORDS: Record<string, string[]> = {
   EURUSD: ["eur", "euro", "eurusd", "euro dollar", "dollar euro"],
   GBPUSD: ["gbp", "sterling", "pound", "gbpusd", "dollar pound"],
@@ -29,17 +28,6 @@ export function newsMatchesInstrument(title: string, symbol: string): boolean {
   const keys = INSTRUMENT_KEYWORDS[symbol] ?? [symbol.toLowerCase()];
   return keys.some((keyword) => haystack.includes(keyword.toLowerCase()));
 }
-export type NewsStory = {
-  title: string;
-  source: string;
-  publishedAt: string;
-  link: string;
-  snippet: string;
-  sentiment: "bullish" | "bearish" | "neutral";
-  alignment: "aligned" | "diverged" | "neutral";
-  alignmentLabel: string;
-};
-
 const GOOGLE_NEWS_URL = "https://news.google.com/rss/search?q=";
 
 function stripHtml(value: string): string {
@@ -141,13 +129,3 @@ export async function fetchMarketNews(symbol: string, stance: Stance): Promise<N
   }
 }
 
-export const getMarketNews = createServerFn({ method: "POST" })
-  .validator(
-    z.object({
-      symbol: z.string().min(1),
-      stance: z.enum(["strong-bid", "bid", "balanced", "offer", "strong-offer"]),
-    }),
-  )
-  .handler(async ({ data }) => {
-    return fetchMarketNews(data.symbol, data.stance);
-  });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { getMarketNews, type NewsStory } from "@/lib/news/news.server";
+import { getMarketNews, type NewsStory } from "@/lib/news/news.functions";
 
 export function NewsFeed({ symbol, stance }: { symbol: string; stance: string }) {
   const [stories, setStories] = useState<NewsStory[]>([]);

@@ -30,8 +30,22 @@ export function newsMatchesInstrument(title: string, symbol: string): boolean {
 }
 const GOOGLE_NEWS_URL = "https://news.google.com/rss/search?q=";
 
-function stripHtml(value: string): string {
-  return value
+export function stripHtml(value: string): string {
+  const decoded = value.replace(/&(#x?[\da-f]+|amp|quot|apos|nbsp|lt|gt);/gi, (entity, code: string) => {
+    const normalized = code.toLowerCase();
+    if (normalized === "amp") return "&";
+    if (normalized === "quot") return '"';
+    if (normalized === "apos") return "'";
+    if (normalized === "nbsp") return " ";
+    if (normalized === "lt") return "<";
+    if (normalized === "gt") return ">";
+    const numeric = normalized.startsWith("#x")
+      ? Number.parseInt(normalized.slice(2), 16)
+      : Number.parseInt(normalized.slice(1), 10);
+    return Number.isFinite(numeric) ? String.fromCodePoint(numeric) : entity;
+  });
+
+  return decoded
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")

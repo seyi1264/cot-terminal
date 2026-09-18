@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeSentiment, scoreAlignment, summarizeAlignment } from "./alignment.ts";
-import { newsMatchesInstrument } from "./news.server.ts";
+import { newsMatchesInstrument, stripHtml } from "./news.server.ts";
 
 test("bullish headlines align with bid-heavy COT stance", () => {
   assert.equal(scoreAlignment("bullish", "strong-bid"), "aligned");
@@ -33,4 +33,11 @@ test("headline filtering keeps only stories relevant to the instrument", () => {
   assert.equal(newsMatchesInstrument("Gold prices rally as bullion extends gains", "XAUUSD"), true);
   assert.equal(newsMatchesInstrument("Stocks hit records as traders cheer earnings", "XAUUSD"), false);
   assert.equal(newsMatchesInstrument("Dollar index slips as traders cut bets", "DXY"), true);
+});
+
+test("news descriptions decode escaped HTML before rendering", () => {
+  assert.equal(
+    stripHtml("&lt;a href=\"https://example.com\"&gt;Read more&lt;/a&gt; &amp; outlook"),
+    "Read more & outlook",
+  );
 });

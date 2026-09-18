@@ -6,6 +6,7 @@ import { DetailPanel } from "@/components/detail-panel";
 import { HowToRead } from "@/components/how-to-read";
 import { InstrumentCard } from "@/components/instrument-card";
 import { PressureStrip } from "@/components/pressure-strip";
+import { SignalTicker } from "@/components/signal-ticker";
 import { WeeklyBriefing } from "@/components/weekly-briefing";
 import { Button } from "@/components/ui/button";
 import { getCotBoard } from "@/lib/cot/board.functions";
@@ -100,6 +101,7 @@ function Home() {
           </div>
         </div>
       </header>
+      <SignalTicker reports={board.instruments} onSelect={setCode} />
 
       <main className="mx-auto max-w-6xl px-4">
         <section className="py-10 sm:py-14">

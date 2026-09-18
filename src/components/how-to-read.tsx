@@ -49,8 +49,23 @@ export function HowToRead({
               a trigger on its own.
             </p>
             <p>
-              Published Friday for Tuesday’s close. Macro context. Confirm against chart zones
-              before acting.
+              <strong className="font-medium text-fg">Weekly briefing</strong> ranks the biggest
+              positioning changes first. Largest shifts show where the White Oak difference moved
+              most; extreme readings show when positioning is near its all-history boundary; active
+              flow shows which books are doing the work.
+            </p>
+            <p>
+              <strong className="font-medium text-fg">News alignment</strong> compares recent
+              instrument-specific headlines with the current stance. Aligned means the headline
+              tone supports the COT read; Diverged means it points the other way; Neutral means
+              there is no reliable directional signal. News is context, not confirmation by itself.
+            </p>
+            <p>
+              The board fetches the latest available CFTC report when it loads or when you press
+              Refresh. CFTC publishes Friday data for Tuesday’s close, so the displayed date is
+              the position date, not the publication date. If the live feed is unavailable, the
+              board marks itself as a snapshot. Always confirm the read against chart zones before
+              acting.
             </p>
           </div>
         </Dialog.Content>

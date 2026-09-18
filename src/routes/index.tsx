@@ -6,6 +6,7 @@ import { DetailPanel } from "@/components/detail-panel";
 import { HowToRead } from "@/components/how-to-read";
 import { InstrumentCard } from "@/components/instrument-card";
 import { PressureStrip } from "@/components/pressure-strip";
+import { WeeklyBriefing } from "@/components/weekly-briefing";
 import { Button } from "@/components/ui/button";
 import { getCotBoard } from "@/lib/cot/board.functions";
 import { CATEGORY_LABEL } from "@/lib/cot/instruments";
@@ -115,6 +116,9 @@ function Home() {
           </p>
           <div className="mt-8">
             <PressureStrip instruments={board.instruments} onSelect={setCode} />
+          </div>
+          <div className="mt-10">
+            <WeeklyBriefing reports={board.instruments} onSelect={setCode} />
           </div>
         </section>
 

@@ -104,6 +104,18 @@ export function isMainModule(moduleUrl) {
   }
 }
 
+export function commandName(command) {
+  if (process.platform !== "win32") return command;
+  if (command.endsWith(".cmd") || command.endsWith(".ps1") || command.endsWith(".exe")) {
+    return command;
+  }
+  return `${command}.cmd`;
+}
+
+function quoteForWindows(value) {
+  return `"${String(value).replace(/"/g, '\\"')}"`;
+}
+
 function main(argv) {
   const [command, ...args] = argv;
   if (!command) {
@@ -111,7 +123,32 @@ function main(argv) {
     process.exit(2);
   }
   const env = mergeAppEnv(readAppEnv(projectRoot()), process.env);
-  const child = spawn(command, args, { stdio: "inherit", env });
+  const resolvedCommand = commandName(command);
+
+  if (process.platform === "win32") {
+    const isShellCommand = /\.(cmd|bat|ps1)$/i.test(resolvedCommand);
+    if (isShellCommand) {
+      const cmd = quoteForWindows(resolvedCommand);
+      const commandLine = `${cmd} ${args.map((arg) => quoteForWindows(arg)).join(" ")}`;
+      const child = spawn("cmd.exe", ["/d", "/s", "/c", commandLine], {
+        stdio: "inherit",
+        env,
+      });
+      for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+        process.on(signal, () => child.kill(signal));
+      }
+      child.on("error", (err) => {
+        console.error(`[with-app-env] failed to run ${command}:`, err?.message || err);
+        process.exit(127);
+      });
+      child.on("exit", (code, signal) => {
+        process.exit(exitStatusFromChild(code, signal));
+      });
+      return;
+    }
+  }
+
+  const child = spawn(resolvedCommand, args, { stdio: "inherit", env });
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     process.on(signal, () => child.kill(signal));

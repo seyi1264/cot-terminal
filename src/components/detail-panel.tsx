@@ -5,6 +5,7 @@ import type { InstrumentReport } from "@/lib/cot/types";
 import { GroupStats } from "@/components/group-stats";
 import { IndexBar } from "@/components/index-bar";
 import { NetChart, WoChart } from "@/components/net-chart";
+import { NewsFeed } from "@/components/news-feed";
 import { StanceChip } from "@/components/stance-chip";
 import { Button } from "@/components/ui/button";
 
@@ -117,6 +118,10 @@ function DetailBody({
             commercials short reads as a combined institutional bid.
           </p>
           <WoChart series={report.series} />
+        </section>
+
+        <section>
+          <NewsFeed symbol={report.pair} stance={report.stance} />
         </section>
 
         <section>

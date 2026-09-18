@@ -7,6 +7,7 @@ import { test } from "node:test";
 import { promisify } from "node:util";
 import {
   APP_ENV_REL_PATH,
+  commandName,
   mergeAppEnv,
   parseAppEnv,
   projectRoot,
@@ -63,6 +64,15 @@ test("the template ships auth off", () => {
   assert.deepEqual(readAppEnv(projectRoot()), { VITE_AUTH_ENABLED: "false" });
 });
 
+test("Windows resolves the .cmd shim before spawning vite", () => {
+  if (process.platform === "win32") {
+    assert.equal(commandName("vite"), "vite.cmd");
+    assert.equal(commandName("vite.cmd"), "vite.cmd");
+  } else {
+    assert.equal(commandName("vite"), "vite");
+  }
+});
+
 test("vite loadEnv resolves the wrapped value", () => {
   // What `import.meta.env.VITE_AUTH_ENABLED` becomes: loadEnv prefix-matches
   // process.env, so the wrapper's merge has to land before Vite starts.
@@ -114,6 +124,9 @@ test("a signal-killed command is never reported as success", async () => {
 });
 
 test("the CLI still runs when invoked through a symlinked path", async () => {
+  if (process.platform === "win32") {
+    return;
+  }
   // node realpaths import.meta.url but not process.argv[1], so a raw comparison
   // turns the wrapper into a no-op that exits 0 without starting anything.
   const link = join(mkdtempSync(join(tmpdir(), "app-env-link-")), "scripts");

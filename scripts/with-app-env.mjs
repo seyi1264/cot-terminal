@@ -20,7 +20,7 @@
  * `process.env`, which is why the merge has to happen before Vite starts.
  */
 import { spawn } from "node:child_process";
-import { readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { constants as osConstants } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -112,8 +112,40 @@ export function commandName(command) {
   return `${command}.cmd`;
 }
 
-function quoteForWindows(value) {
-  return `"${String(value).replace(/"/g, '\\"')}"`;
+export function resolveCommand(command) {
+  if (process.platform !== "win32") return command;
+  const candidateNames = [
+    commandName(command),
+    `${command}.exe`,
+    `${command}.ps1`,
+    `${command}.bat`,
+  ];
+
+  for (const candidate of candidateNames) {
+    if (candidate.includes("\\") || candidate.includes("/")) {
+      if (existsSync(candidate)) return candidate;
+      continue;
+    }
+
+    const localBin = join(projectRoot(), "node_modules", ".bin", candidate);
+    if (existsSync(localBin)) return candidate;
+  }
+
+  return commandName(command);
+}
+
+export function buildWindowsCommandLine(command, args) {
+  const tokens = [command, ...args];
+  const commandLine = tokens
+    .map((value) => {
+      const stringValue = String(value);
+      if (/^[A-Za-z0-9_./\\:-]+$/.test(stringValue)) {
+        return stringValue;
+      }
+      return `"${stringValue.replace(/"/g, '\\"')}"`;
+    })
+    .join(" ");
+  return commandLine;
 }
 
 function main(argv) {
@@ -123,16 +155,19 @@ function main(argv) {
     process.exit(2);
   }
   const env = mergeAppEnv(readAppEnv(projectRoot()), process.env);
-  const resolvedCommand = commandName(command);
+  if (process.platform === "win32") {
+    const pathKey = Object.keys(env).find((key) => key.toUpperCase() === "PATH") || "PATH";
+    env[pathKey] = `${join(projectRoot(), "node_modules", ".bin")};${env[pathKey] || ""}`;
+  }
+  const resolvedCommand = resolveCommand(command);
 
   if (process.platform === "win32") {
     const isShellCommand = /\.(cmd|bat|ps1)$/i.test(resolvedCommand);
     if (isShellCommand) {
-      const cmd = quoteForWindows(resolvedCommand);
-      const commandLine = `${cmd} ${args.map((arg) => quoteForWindows(arg)).join(" ")}`;
-      const child = spawn("cmd.exe", ["/d", "/s", "/c", commandLine], {
+      const child = spawn(resolvedCommand, args, {
         stdio: "inherit",
         env,
+        shell: true,
       });
       for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
         process.on(signal, () => child.kill(signal));

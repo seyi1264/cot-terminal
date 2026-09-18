@@ -7,6 +7,7 @@ import { test } from "node:test";
 import { promisify } from "node:util";
 import {
   APP_ENV_REL_PATH,
+  buildWindowsCommandLine,
   commandName,
   mergeAppEnv,
   parseAppEnv,
@@ -71,6 +72,16 @@ test("Windows resolves the .cmd shim before spawning vite", () => {
   } else {
     assert.equal(commandName("vite"), "vite");
   }
+});
+
+test("Windows cmd.exe command lines do not double-quote PATH-resolved .cmd shims", () => {
+  if (process.platform !== "win32") return;
+  const line = buildWindowsCommandLine("vite.cmd", ["dev", "--host", "0.0.0.0", "--port", "8080"]);
+  assert.equal(line, "vite.cmd dev --host 0.0.0.0 --port 8080");
+  assert.equal(
+    buildWindowsCommandLine("C:\\workspace folder\\node_modules\\.bin\\vite.cmd", ["--version"]),
+    '"C:\\workspace folder\\node_modules\\.bin\\vite.cmd" --version',
+  );
 });
 
 test("vite loadEnv resolves the wrapped value", () => {

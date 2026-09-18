@@ -93,6 +93,7 @@
 
 .signal-ticker-track {
   animation: signal-ticker 34s linear infinite;
+  will-change: transform;
 }
 
 .signal-ticker-track:hover,

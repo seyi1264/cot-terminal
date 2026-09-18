@@ -16,7 +16,7 @@ export function SignalTicker({ reports, onSelect }: { reports: InstrumentReport[
         <span className="z-10 shrink-0 border-r border-border bg-bg-elevated py-2.5 pr-4 text-[10px] font-medium uppercase tracking-[0.16em] text-accent">
           Signals
         </span>
-        <div className="relative min-w-0 overflow-hidden">
+        <div className="relative min-w-0 flex-1 overflow-hidden">
           <div className="signal-ticker-track flex w-max items-center" aria-live="polite">
             {tickerItems.map((item, index) => {
               const positive = item.report.woDiffChange >= 0;

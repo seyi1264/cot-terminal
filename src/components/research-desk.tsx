@@ -225,7 +225,6 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
   }, [priceWindow, replaySeries]);
   const priceLinePoints = priceSeries.map((point) => `${point.x},${point.y}`).join(" ");
   const playheadX = replaySeries.length === 1 ? 50 : (Math.max(0, Math.min(index, range.end) - range.start) / Math.max(1, range.end - range.start)) * 100;
-  const activePricePoint = [...priceSeries].reverse().find((point: { date: string; x: number; y: number; close: number }) => point.date === activePoint?.d) ?? priceSeries.at(-1) ?? null;
 
   useEffect(() => {
     const defaults = resolveReplayRange(report.series, report.series[0]?.d, report.series.at(-1)?.d);
@@ -271,6 +270,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
   const currentWindowIndex = Math.max(0, Math.min(index, range.end) - range.start);
   const visibleSeries = replaySeries.slice(0, Math.max(1, currentWindowIndex + 1));
   const activePoint = visibleSeries.at(-1) ?? replaySeries[0];
+  const activePricePoint = [...priceSeries].reverse().find((pricePoint) => pricePoint.date === activePoint?.d) ?? priceSeries.at(-1) ?? null;
 
   return <div className="mt-5 space-y-5">
     <div>
@@ -316,11 +316,11 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
       <Dialog.Root open={isRangeModalOpen} onOpenChange={setIsRangeModalOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-bg/70 data-[state=open]:animate-in" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,30rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow-border)] outline-none">
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[min(88vh,34rem)] w-[min(92vw,26rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-bg-elevated p-4 shadow-[var(--shadow-border)] outline-none sm:p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <Dialog.Title className="font-display text-xl text-fg">Replay date range</Dialog.Title>
-                <Dialog.Description className="mt-1 text-sm text-muted">Choose the date window to replay through the historical COT series.</Dialog.Description>
+                <Dialog.Title className="font-display text-lg text-fg">Replay date range</Dialog.Title>
+                <Dialog.Description className="mt-1 text-xs leading-relaxed text-muted">Choose the historical COT window to replay.</Dialog.Description>
               </div>
               <Button variant="quiet" size="icon" onClick={() => setIsRangeModalOpen(false)} aria-label="Close replay window picker">
                 <X className="size-4" />

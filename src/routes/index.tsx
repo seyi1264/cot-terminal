@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
-import { RefreshCw } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { RefreshCw, Star } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { DetailPanel } from "@/components/detail-panel";
 import { HowToRead } from "@/components/how-to-read";
@@ -8,6 +8,7 @@ import { InstrumentCard } from "@/components/instrument-card";
 import { PressureStrip } from "@/components/pressure-strip";
 import { SignalTicker } from "@/components/signal-ticker";
 import { WeeklyBriefing } from "@/components/weekly-briefing";
+import { WatchlistPanel } from "@/components/watchlist-panel";
 import { Button } from "@/components/ui/button";
 import { getCotBoard } from "@/lib/cot/board.functions";
 import { CATEGORY_LABEL } from "@/lib/cot/instruments";
@@ -37,6 +38,8 @@ function Home() {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [guideOpen, setGuideOpen] = useState(false);
+  const [watchlistOpen, setWatchlistOpen] = useState(false);
+  const [watchlistCodes, setWatchlistCodes] = useState<string[]>([]);
   const [sort, setSort] = useState<SortKey>("stance");
   const cat = (CATS.includes(search.cat as CatFilter) ? search.cat : "all") as CatFilter;
 
@@ -49,6 +52,15 @@ function Home() {
   }, [board.instruments, cat, sort]);
 
   const active = board.instruments.find((row) => row.code === search.code) ?? null;
+  const watchedReports = board.instruments.filter((row) => watchlistCodes.includes(row.code));
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("oak-ledger-watchlist") ?? "null") as { codes?: unknown } | null;
+      if (Array.isArray(saved?.codes)) setWatchlistCodes(saved.codes.filter((code): code is string => typeof code === "string"));
+    } catch {
+    }
+  }, []);
 
   function setCode(code?: string) {
     void navigate({
@@ -94,6 +106,10 @@ function Home() {
             <Button variant="quiet" size="md" onClick={() => setGuideOpen(true)}>
               How to read
             </Button>
+            <Button variant="quiet" size="md" onClick={() => setWatchlistOpen(true)}>
+              <Star className="size-3.5" />
+              Watchlist{watchlistCodes.length ? ` · ${watchlistCodes.length}` : ""}
+            </Button>
             <Button variant="ghost" size="md" onClick={refresh} disabled={pending}>
               <RefreshCw className={cn("size-3.5", pending && "animate-spin")} />
               Refresh
@@ -122,6 +138,36 @@ function Home() {
           <div className="mt-10">
             <WeeklyBriefing reports={board.instruments} onSelect={setCode} />
           </div>
+          {watchedReports.length ? (
+            <section className="mt-8 border-b border-border pb-6" aria-labelledby="watchlist-summary-title">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-accent">Your watchlist</p>
+                  <h2 id="watchlist-summary-title" className="mt-1 font-display text-2xl font-medium tracking-tight text-fg">
+                    Markets worth a second look
+                  </h2>
+                </div>
+                <button type="button" onClick={() => setWatchlistOpen(true)} className="text-xs text-muted hover:text-fg">
+                  Manage
+                </button>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {watchedReports.map((report) => {
+                  const extreme = Math.max(report.woIndex, 100 - report.woIndex);
+                  const activeAlert = extreme >= 90 || Math.abs(report.woDiffChange) >= 100_000;
+                  return (
+                    <button key={report.code} type="button" onClick={() => setCode(report.code)} className="flex items-center justify-between rounded-lg bg-bg-elevated p-3 text-left shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]">
+                      <span>
+                        <span className="block font-mono text-sm font-medium text-fg">{report.symbol}</span>
+                        <span className="mt-1 block text-xs text-muted">{activeAlert ? "Threshold crossed" : "No new alert"}</span>
+                      </span>
+                      <span className={cn("size-2 rounded-full", activeAlert ? "bg-accent" : "bg-muted")} />
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
         </section>
 
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -182,6 +228,13 @@ function Home() {
 
       <DetailPanel report={active} open={Boolean(active)} onClose={() => setCode(undefined)} />
       <HowToRead open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <WatchlistPanel
+        reports={board.instruments}
+        open={watchlistOpen}
+        onClose={() => setWatchlistOpen(false)}
+        codes={watchlistCodes}
+        onCodesChange={setWatchlistCodes}
+      />
     </div>
   );
 }

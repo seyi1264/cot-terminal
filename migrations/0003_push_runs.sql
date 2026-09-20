@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS push_runs (
+  as_of TEXT PRIMARY KEY,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

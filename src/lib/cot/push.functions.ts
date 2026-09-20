@@ -78,3 +78,10 @@ export async function sendPushToUsers(userIds: string[], payload: string) {
   }
   return { sent, configured: true };
 }
+
+export async function sendPushToAll(payload: string) {
+  const { getSql } = await import("@/lib/db");
+  const sql = await getSql();
+  const rows = await sql.query<{ user_id: string }>("select distinct user_id from push_subscriptions");
+  return sendPushToUsers(rows.map((row) => row.user_id), payload);
+}

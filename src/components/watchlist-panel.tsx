@@ -199,8 +199,8 @@ export function WatchlistPanel({
                   <p className="mt-1 text-xs leading-relaxed text-muted">
                     {notificationPermission === "granted"
                       ? pushStatus === "ready"
-                        ? "Enabled for browser and closed-app push delivery."
-                        : "Enabled on this browser, phone, or desktop when a fresh snapshot loads."
+                        ? "Enabled for this device and ready to receive alerts."
+                        : "Permission is granted. The watchlist is preparing the delivery subscription."
                       : notificationPermission === "denied"
                         ? "Blocked by the browser. Re-enable Oak & Ledger in site settings."
                         : notificationPermission === "unsupported"
@@ -209,7 +209,9 @@ export function WatchlistPanel({
                   </p>
                 </div>
                 {notificationPermission === "granted" ? (
-                  <span className={cn("shrink-0 text-xs", pushStatus === "ready" ? "text-bid" : "text-accent")}>{pushStatus === "ready" ? "Push ready" : "Browser ready"}</span>
+                  <span className={cn("shrink-0 text-xs", pushStatus === "ready" ? "text-bid" : "text-accent")}>
+                    {pushStatus === "ready" ? "Ready" : "Enabled"}
+                  </span>
                 ) : notificationPermission === "unsupported" || notificationPermission === "denied" ? null : (
                   <Button variant="quiet" size="sm" onClick={enableNotifications}>
                     Enable

@@ -14,7 +14,10 @@ export function AnalysisLab({ reports }: { reports: InstrumentReport[] }) {
   const report = reports.find((item) => item.code === code) ?? reports[0];
   const [prices, setPrices] = useState<Array<{ date: string; close: number }>>([]);
   const stats = report ? backtest(report, threshold) : { samples: 0, one: 0, four: 0, twelve: 0 };
-  const pushStatus = typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted" ? "Browser ready" : "Permission needed";
+  const browserPushReady = typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted";
+  const pushSummary = browserPushReady
+    ? "Browser alerts are active on this device. The watchlist will notify once the subscription is confirmed."
+    : "Notification permission is required before browser alerts can fire for this device.";
 
   useEffect(() => {
     const symbol = report ? SYMBOLS[report.pair] : undefined;
@@ -49,7 +52,7 @@ export function AnalysisLab({ reports }: { reports: InstrumentReport[] }) {
     <div className="mt-5 grid gap-2 sm:grid-cols-4"><Metric label="Extreme samples" value={String(stats.samples)} /><Metric label="1-week follow-through" value={stats.samples ? `${stats.one}%` : "—"} /><Metric label="4-week follow-through" value={stats.samples ? `${stats.four}%` : "—"} /><Metric label="12-week follow-through" value={stats.samples ? `${stats.twelve}%` : "—"} /></div>
     <div className="mt-4 rounded-lg bg-bg-elevated p-4 shadow-[var(--shadow-border)]"><div className="flex items-center gap-2"><LineChart className="size-4 text-accent" /><h3 className="font-display text-lg text-fg">Weekly price context</h3><span className="ml-auto text-xs text-muted">{prices.length ? "Yahoo Finance" : "Unavailable"}</span></div>{chart.length > 1 ? <svg viewBox="0 0 520 150" className="mt-4 h-36 w-full" role="img" aria-label={`${report.symbol} weekly closing price chart`}><polyline points={chart.map((item, index) => `${(index / (chart.length - 1)) * 520},${145 - ((item.close - min) / Math.max(1e-9, max - min)) * 130}`).join(" ")} fill="none" stroke="var(--color-accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" /></svg> : <p className="mt-4 text-sm text-muted">Price history is unavailable for this instrument.</p>}</div>
     <div className="mt-4"><div className="flex items-center gap-2"><NotebookPen className="size-4 text-accent" /><h3 className="font-display text-lg text-fg">Thesis journal</h3></div><textarea value={note} onChange={(event) => saveNote(event.target.value)} placeholder="Catalyst, conviction, invalidation, review date..." className="mt-3 min-h-28 w-full resize-y rounded-lg bg-bg-elevated p-3 text-sm leading-relaxed text-fg shadow-[var(--shadow-border)] placeholder:text-subtle" /><p className="mt-2 text-xs text-subtle">Saved locally on this device.</p></div>
-    <div className="mt-4 flex items-start gap-3 rounded-lg bg-bg-elevated p-3 shadow-[var(--shadow-border)]"><Bell className="mt-0.5 size-4 text-accent" /><div><p className="text-sm text-fg">Closed-app push delivery</p><p className="mt-1 text-xs leading-relaxed text-muted">{pushStatus}. Server delivery still needs VAPID keys, subscription storage, and a scheduled COT check.</p></div></div>
+    <div className="mt-4 flex items-start gap-3 rounded-lg bg-bg-elevated p-3 shadow-[var(--shadow-border)]"><Bell className="mt-0.5 size-4 text-accent" /><div><p className="text-sm text-fg">Alert delivery</p><p className="mt-1 text-xs leading-relaxed text-muted">{pushSummary}</p></div></div>
   </section>;
 }
 

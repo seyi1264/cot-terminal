@@ -28,7 +28,8 @@ export const getMarketHistory = createServerFn({ method: "POST" })
   .validator(z.object({ symbol: z.string().min(1).max(20) }))
   .handler(async ({ data }) => {
     const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(data.symbol)}`);
-    url.searchParams.set("range", "5y");
+    url.searchParams.set("period1", String(Math.floor(new Date("1980-01-01T00:00:00Z").getTime() / 1000)));
+    url.searchParams.set("period2", String(Math.floor(Date.now() / 1000)));
     url.searchParams.set("interval", "1wk");
     const response = await fetch(url, {
       headers: { Accept: "application/json", "User-Agent": "OakLedger/1.0" },

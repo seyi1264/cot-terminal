@@ -9,25 +9,25 @@ import { cn } from "@/lib/utils";
 type DeskTab = "confluence" | "replay" | "notes" | "calendar";
 
 const PRICE_SYMBOLS: Record<string, string> = {
-  EURUSD: "eurusd",
-  GBPUSD: "gbpusd",
-  USDJPY: "usdjpy",
-  AUDUSD: "audusd",
-  USDCAD: "usdcad",
-  USDCHF: "usdchf",
-  NZDUSD: "nzdusd",
-  USDMXN: "usdmxn",
-  DXY: "dxy",
-  XAUUSD: "xauusd",
-  XAGUSD: "xagusd",
-  HG: "hg.f",
-  CL: "cl.f",
-  NG: "ng.f",
-  ES: "es.f",
-  NQ: "nq.f",
-  ZN: "zn.f",
-  ZB: "zb.f",
-  BTC: "btcusd",
+  EURUSD: "EURUSD=X",
+  GBPUSD: "GBPUSD=X",
+  USDJPY: "JPY=X",
+  AUDUSD: "AUDUSD=X",
+  USDCAD: "CAD=X",
+  USDCHF: "CHF=X",
+  NZDUSD: "NZDUSD=X",
+  USDMXN: "MXN=X",
+  DXY: "DX-Y.NYB",
+  XAUUSD: "GC=F",
+  XAGUSD: "SI=F",
+  HG: "HG=F",
+  CL: "CL=F",
+  NG: "NG=F",
+  ES: "ES=F",
+  NQ: "NQ=F",
+  ZN: "ZN=F",
+  ZB: "ZB=F",
+  BTC: "BTC-USD",
 };
 
 export function ResearchDesk({
@@ -188,7 +188,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
       <Metric label="Commercials" value={point ? formatSigned(point.c) : "—"} />
       <Metric label="Open interest" value={point ? point.o.toLocaleString() : "—"} />
       <div className="col-span-full mt-2 grid gap-2 sm:grid-cols-2">
-        <div className="rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]"><p className="text-[10px] uppercase tracking-wide text-subtle">Latest price context</p><p className="mt-2 font-mono text-sm text-fg">{price ? price.close.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "Unavailable"}</p><p className="mt-1 text-xs text-muted">{price ? `Stooq daily close · ${price.date}` : "Price source did not return a quote."}</p></div>
+        <div className="rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]"><p className="text-[10px] uppercase tracking-wide text-subtle">Latest price context</p><p className="mt-2 font-mono text-sm text-fg">{price ? price.close.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "Unavailable"}</p><p className="mt-1 text-xs text-muted">{price ? `Yahoo Finance daily close · ${price.date}` : "Price source did not return a quote."}</p></div>
         <div className="rounded-lg bg-bg p-3 text-xs leading-relaxed text-muted shadow-[var(--shadow-border)]">Replay is based on the historical COT print, before later weeks were known. Use it to inspect how positioning evolved, not as a price backtest.</div>
       </div>
     </div>

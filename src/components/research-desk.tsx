@@ -352,10 +352,14 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
             </defs>
             <rect x="0" y="4" width="100" height="52" rx="2" fill="var(--color-bg-elevated)" opacity="0.55" />
             <rect x="0" y="68" width="100" height="52" rx="2" fill="var(--color-bg-elevated)" opacity="0.55" />
-            <line x1="0" x2="100" y1="62" y2="62" stroke="var(--color-border)" strokeWidth="0.5" />
-            <line x1={playheadX} x2={playheadX} y1="4" y2="120" stroke="var(--color-accent)" strokeWidth="1.2" strokeDasharray="2 3" opacity="0.9" />
-            <text x="2" y="11" fill="var(--color-subtle)" fontSize="3" letterSpacing="0.4">COT POSITIONING</text>
-            <text x="2" y="75" fill="var(--color-subtle)" fontSize="3" letterSpacing="0.4">WEEKLY PRICE</text>
+            <g stroke="var(--color-border)" strokeWidth="0.35" opacity="0.7">
+              {[16, 34, 52, 80, 98, 116].map((y) => <line key={y} x1="0" x2="100" y1={y} y2={y} />)}
+              {[25, 50, 75].map((x) => <line key={x} x1={x} x2={x} y1="4" y2="120" strokeDasharray="1 2" />)}
+              <line x1="0" x2="100" y1="62" y2="62" />
+            </g>
+            <line x1={playheadX} x2={playheadX} y1="4" y2="120" stroke="var(--color-accent)" strokeWidth="1" strokeDasharray="1.5 2" opacity="0.85" />
+            <text x="2" y="10" fill="var(--color-subtle)" fontSize="2.6" letterSpacing="0.35">COT POSITIONING</text>
+            <text x="2" y="74" fill="var(--color-subtle)" fontSize="2.6" letterSpacing="0.35">WEEKLY PRICE</text>
             {priceLinePoints ? <polyline points={priceLinePoints} fill="none" stroke="var(--color-bid)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" /> : null}
             <polyline points={visiblePlotSeries.length > 1 ? visiblePlotSeries.map(({ value: seriesPoint, index: seriesIndex }) => {
               const x = replaySeries.length === 1 ? 50 : (seriesIndex / Math.max(1, replaySeries.length - 1)) * 100;

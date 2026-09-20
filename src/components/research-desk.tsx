@@ -163,6 +163,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [range, setRange] = useState(() => resolveReplayRange(report.series, report.series[0]?.d, report.series.at(-1)?.d));
+  const [priceHistory, setPriceHistory] = useState<Array<{ date: string; close: number }>>([]);
   const point = report.series[index] ?? report.series.at(-1);
   const latest = report.series.at(-1);
   const progress = report.series.length > 1 ? (index / (report.series.length - 1)) * 100 : 100;
@@ -176,16 +177,55 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
     const symbol = PRICE_SYMBOLS[report.pair];
     if (!symbol) {
       setPrice(null);
+      setPriceHistory([]);
       return;
     }
     let active = true;
     void getMarketPrice({ data: { symbol } })
       .then((value) => active && setPrice(value))
       .catch(() => active && setPrice(null));
+    void import("@/lib/cot/price.functions").then(({ getMarketHistory }) =>
+      getMarketHistory({ data: { symbol } })
+        .then((history) => active && setPriceHistory(history))
+        .catch(() => active && setPriceHistory([])),
+    );
     return () => {
       active = false;
     };
   }, [report.pair]);
+
+  const absoluteOldestDate = report.series[0]?.d ?? "—";
+  const absoluteLatestDate = report.series.at(-1)?.d ?? "—";
+  const replayStartDate = replaySeries[0]?.d ?? absoluteOldestDate;
+  const replayEndDate = replaySeries.at(-1)?.d ?? absoluteLatestDate;
+  const priceWindow = useMemo(() => {
+    if (!priceHistory.length) return [];
+    const start = replayStartDate;
+    const end = replayEndDate;
+    return priceHistory.filter((item) => item.date >= start && item.date <= end);
+  }, [priceHistory, replayStartDate, replayEndDate]);
+  const priceSeries = useMemo(() => {
+    if (!replaySeries.length || !priceWindow.length) return [] as Array<{ date: string; x: number; y: number; close: number }>;
+    const min = Math.min(...priceWindow.map((item) => item.close));
+    const max = Math.max(...priceWindow.map((item) => item.close));
+
+    return replaySeries
+      .map((seriesPoint, seriesIndex) => {
+        const matchingPrice = priceWindow.reduce<{ date: string; close: number } | null>((closest, item) => {
+          if (!closest) return item;
+          return Math.abs(new Date(item.date).getTime() - new Date(seriesPoint.d).getTime()) < Math.abs(new Date(closest.date).getTime() - new Date(seriesPoint.d).getTime()) ? item : closest;
+        }, null);
+        if (!matchingPrice) return null;
+        const close = matchingPrice.close;
+        const x = replaySeries.length === 1 ? 50 : (seriesIndex / Math.max(1, replaySeries.length - 1)) * 100;
+        const y = max === min ? 50 : 100 - ((close - min) / (max - min || 1)) * 90;
+        return { date: seriesPoint.d, x, y, close };
+      })
+      .filter((point): point is { date: string; x: number; y: number; close: number } => point !== null);
+  }, [priceWindow, replaySeries]);
+  const priceLinePoints = priceSeries.map((point) => `${point.x},${point.y}`).join(" ");
+  const playheadX = replaySeries.length === 1 ? 50 : (Math.max(0, Math.min(index, range.end) - range.start) / Math.max(1, range.end - range.start)) * 100;
+  const activePricePoint = [...priceSeries].reverse().find((point: { date: string; x: number; y: number; close: number }) => point.date === activePoint?.d) ?? priceSeries.at(-1) ?? null;
 
   useEffect(() => {
     const defaults = resolveReplayRange(report.series, report.series[0]?.d, report.series.at(-1)?.d);
@@ -232,7 +272,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
   const visibleSeries = replaySeries.slice(0, Math.max(1, currentWindowIndex + 1));
   const activePoint = visibleSeries.at(-1) ?? replaySeries[0];
 
-  return <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1.4fr]">
+  return <div className="mt-5 space-y-5">
     <div>
       <label className="text-xs text-muted">Instrument<select value={report.code} onChange={(event) => onCodeChange(event.target.value)} className="mt-1 h-9 w-full rounded-md bg-bg-elevated px-2 text-sm text-fg shadow-[var(--shadow-border)]">{reports.map((item) => <option key={item.code} value={item.code}>{item.symbol} · {item.name}</option>)}</select></label>
       <div className="mt-4 flex items-center justify-between gap-2">
@@ -241,6 +281,9 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
       </div>
       <div className="mt-2 rounded-lg bg-bg-elevated p-3 text-xs text-muted shadow-[var(--shadow-border)]">
         <div className="flex items-center justify-between gap-2"><span>{report.series[range.start]?.d ?? report.series[0]?.d}</span><span className="font-mono text-accent">→</span><span>{report.series[range.end]?.d ?? report.series.at(-1)?.d}</span></div>
+        <div className="mt-2 rounded-md border border-accent/40 bg-accent/5 px-2 py-1.5 text-[11px] text-accent">
+          Oldest CFTC date in this series: <span className="font-mono font-medium">{absoluteOldestDate}</span>
+        </div>
       </div>
       <label className="mt-4 block text-xs text-muted">Historical week <input type="range" min={range.start} max={range.end} value={index} onChange={(event) => { setIsPlaying(false); onIndexChange(Number(event.target.value)); }} className="mt-3 w-full accent-[var(--color-accent)]" style={{ "--range-progress": `${progress}%` } as React.CSSProperties} /><span className="mt-2 flex justify-between font-mono text-[11px] text-subtle"><span>{report.series[range.start]?.d}</span><span>{point?.d}</span><span>{report.series[range.end]?.d}</span></span></label>
       <div className="mt-3 rounded-lg bg-bg p-2 shadow-[var(--shadow-border)]">
@@ -295,6 +338,13 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
                   setRange({ ...nextRange, startDate: report.series[nextRange.start]?.d, endDate: report.series[nextRange.end]?.d });
                 }} className="mt-1 h-9 w-full rounded-md bg-bg px-2 text-sm text-fg shadow-[var(--shadow-border)]">{report.series.map((point) => <option key={point.d} value={point.d}>{point.d}</option>)}</select></label>
             </div>
+            <div className="mt-4 rounded-md border border-border bg-bg px-3 py-2 text-xs text-muted">
+              <div className="flex items-center justify-between gap-2">
+                <span>Oldest available CFTC date</span>
+                <span className="font-mono text-accent">{absoluteOldestDate}</span>
+              </div>
+              <div className="mt-1 text-[11px] text-subtle">The replay window cannot extend earlier than the first recorded CFTC print for this market.</div>
+            </div>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="quiet" size="sm" onClick={() => setIsRangeModalOpen(false)}>Cancel</Button>
               <Button size="sm" onClick={() => updateRange(report.series[range.start]?.d ?? report.series[0]?.d, report.series[range.end]?.d ?? report.series.at(-1)?.d)}>Apply range</Button>
@@ -308,17 +358,20 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
       <Metric label="Net specs" value={point ? formatSigned(point.n) : "—"} />
       <Metric label="Commercials" value={point ? formatSigned(point.c) : "—"} />
       <Metric label="Open interest" value={point ? point.o.toLocaleString() : "—"} />
-      <div className="col-span-full mt-2 grid gap-2 sm:grid-cols-[1.3fr_0.7fr]">
-        <div className="rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]">
-          <div className="flex items-center justify-between gap-2"><p className="text-[10px] uppercase tracking-wide text-subtle">Replay chart</p><span className="font-mono text-[11px] text-accent">{range.startDate ?? report.series[0]?.d} → {range.endDate ?? report.series.at(-1)?.d}</span></div>
-          <svg viewBox="0 0 100 100" className="mt-3 h-32 w-full" aria-label={`${report.symbol} replay chart`}>
+      <div className="col-span-full mt-2 grid gap-3 xl:grid-cols-[minmax(0,1.7fr)_minmax(16rem,0.7fr)]">
+        <div className="rounded-lg bg-bg p-4 shadow-[var(--shadow-border)]">
+          <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-[10px] uppercase tracking-wide text-subtle">Replay chart</p><p className="mt-1 text-xs text-muted">COT positioning and synchronized weekly price</p></div><span className="font-mono text-[11px] text-accent">{range.startDate ?? report.series[0]?.d} → {range.endDate ?? report.series.at(-1)?.d}</span></div>
+          <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-accent" /> COT positioning</span><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-bid" /> Price overlay</span><span className="flex items-center gap-1.5"><span className="h-3 w-px border-l border-dashed border-accent" /> Playhead</span></div>
+          <svg viewBox="0 0 100 100" className="mt-2 h-48 w-full" aria-label={`${report.symbol} replay chart with synchronized price overlay`}>
             <defs>
               <linearGradient id={`replay-${report.code}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.5" />
                 <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.1" />
               </linearGradient>
             </defs>
+            <line x1={playheadX} x2={playheadX} y1="8" y2="92" stroke="var(--color-accent)" strokeWidth="1.2" strokeDasharray="2 3" opacity="0.9" />
             <polyline points={chartPoints} fill="none" stroke="var(--color-accent)" strokeWidth="2" />
+            {priceLinePoints ? <polyline points={priceLinePoints} fill="none" stroke="var(--color-bid)" strokeWidth="1.5" opacity="0.9" /> : null}
             <polyline points={visibleSeries.length > 1 ? visibleSeries.map((seriesPoint, seriesIndex) => {
                 const x = replaySeries.length === 1 ? 10 : (seriesIndex / Math.max(1, replaySeries.length - 1)) * 100;
                 const min = Math.min(...replaySeries.map((item) => item.w));
@@ -326,17 +379,19 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
                 const y = max === min ? 50 : 100 - ((seriesPoint.w - min) / (max - min || 1)) * 90;
                 return `${x},${y}`;
               }).join(" ") : ""} fill="none" stroke="var(--color-bid)" strokeWidth="2" opacity="0.9" />
+            {activePricePoint ? <circle cx={activePricePoint.x} cy={activePricePoint.y} r="2.2" fill="var(--color-bid)" stroke="var(--color-bg)" strokeWidth="0.5" /> : null}
             {activePoint ? (() => {
               const min = Math.min(...replaySeries.map((item) => item.w));
               const max = Math.max(...replaySeries.map((item) => item.w));
-              const x = replaySeries.length === 1 ? 50 : ((Math.max(0, visibleSeries.length - 1)) / Math.max(1, replaySeries.length - 1)) * 100;
+              const x = replaySeries.length === 1 ? 50 : (Math.max(0, Math.min(visibleSeries.length - 1, visibleSeries.length - 1)) / Math.max(1, replaySeries.length - 1)) * 100;
               const y = max === min ? 50 : 100 - ((activePoint.w - min) / (max - min || 1)) * 90;
-              return <circle cx={x} cy={y} r="4" fill="var(--color-accent)" />;
+              return <circle cx={x} cy={y} r="4" fill="var(--color-accent)" stroke="var(--color-bg)" strokeWidth="0.7" />;
             })() : null}
           </svg>
           <div className="mt-2 flex items-center justify-between text-[11px] text-subtle"><span>{replaySeries[0]?.d}</span><span>{activePoint?.d}</span><span>{replaySeries.at(-1)?.d}</span></div>
+          <div className="mt-2 flex items-center justify-between text-[11px] text-muted"><span>{priceSeries.length ? "Price overlay uses the nearest weekly close" : "Price overlay unavailable for this window"}</span>{activePricePoint ? <span className="font-mono text-bid">{activePricePoint.close.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span> : null}</div>
         </div>
-        <div className="rounded-lg bg-bg p-3 text-xs leading-relaxed text-muted shadow-[var(--shadow-border)]">Replay is based on the historical COT print, before later weeks were known. Use it to inspect how positioning evolved, not as a price backtest.</div>
+        <div className="rounded-lg bg-bg p-4 text-xs leading-relaxed text-muted shadow-[var(--shadow-border)]"><p className="text-[10px] uppercase tracking-wide text-subtle">Read the replay</p><p className="mt-2">The vertical marker is the active historical week. Positioning stops at that point while the price overlay follows the same replay window.</p><p className="mt-3 text-subtle">This is historical context, not a price backtest.</p></div>
       </div>
       <div className="col-span-full mt-2 grid gap-2 sm:grid-cols-2">
         <div className="rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]"><p className="text-[10px] uppercase tracking-wide text-subtle">Latest price context</p><p className="mt-2 font-mono text-sm text-fg">{price ? price.close.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "Unavailable"}</p><p className="mt-1 text-xs text-muted">{price ? `Yahoo Finance daily close · ${price.date}` : "Price source did not return a quote."}</p></div>

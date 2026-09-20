@@ -49,7 +49,7 @@ export function ResearchDesk({
   const noteReport = reports.find((report) => report.code === noteCode) ?? reports[0];
 
   useEffect(() => {
-    if (replayReport) setReplayIndex(Math.max(0, replayReport.series.length - 1));
+    if (replayReport) setReplayIndex(0);
   }, [replayCode, replayReport]);
 
   function saveNote(value: string) {
@@ -222,13 +222,12 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
       })
       .filter((point): point is { date: string; x: number; y: number; close: number } => point !== null);
   }, [priceWindow, replaySeries]);
-  const priceLinePoints = priceSeries.map((point) => `${point.x},${point.y}`).join(" ");
   const playheadX = replaySeries.length === 1 ? 50 : (Math.max(0, Math.min(index, range.end) - range.start) / Math.max(1, range.end - range.start)) * 100;
 
   useEffect(() => {
     const defaults = resolveReplayRange(report.series, report.series[0]?.d, report.series.at(-1)?.d);
     setRange(defaults);
-    onIndexChange(defaults.end);
+    onIndexChange(defaults.start);
   }, [report.code, report.series, onIndexChange]);
 
   useEffect(() => {
@@ -255,21 +254,13 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
     onIndexChange(range.start);
   }
 
-  const chartPoints = replaySeries.length
-    ? replaySeries
-        .map((seriesPoint, seriesIndex) => {
-          const x = replaySeries.length === 1 ? 10 : (seriesIndex / (replaySeries.length - 1)) * 100;
-          const min = Math.min(...replaySeries.map((item) => item.w));
-          const max = Math.max(...replaySeries.map((item) => item.w));
-          const y = max === min ? 30 : 52 - ((seriesPoint.w - min) / (max - min || 1)) * 42;
-          return `${x},${y}`;
-        })
-        .join(" ")
-    : "";
   const currentWindowIndex = Math.max(0, Math.min(index, range.end) - range.start);
   const visibleSeries = replaySeries.slice(0, Math.max(1, currentWindowIndex + 1));
+  const visiblePlotSeries = sampleIndexed(visibleSeries, 180);
   const activePoint = visibleSeries.at(-1) ?? replaySeries[0];
-  const activePricePoint = [...priceSeries].reverse().find((pricePoint) => pricePoint.date === activePoint?.d) ?? priceSeries.at(-1) ?? null;
+  const visiblePriceSeries = priceSeries.filter((pricePoint) => pricePoint.x <= playheadX + 0.001);
+  const priceLinePoints = sampleIndexed(visiblePriceSeries, 180).map(({ value: pricePoint }) => `${pricePoint.x},${pricePoint.y}`).join(" ");
+  const activePricePoint = visiblePriceSeries.at(-1) ?? null;
 
   return <div className="mt-5 space-y-5">
     <div>
@@ -365,15 +356,14 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
             <line x1={playheadX} x2={playheadX} y1="4" y2="120" stroke="var(--color-accent)" strokeWidth="1.2" strokeDasharray="2 3" opacity="0.9" />
             <text x="2" y="11" fill="var(--color-subtle)" fontSize="3" letterSpacing="0.4">COT POSITIONING</text>
             <text x="2" y="75" fill="var(--color-subtle)" fontSize="3" letterSpacing="0.4">WEEKLY PRICE</text>
-            <polyline points={chartPoints} fill="none" stroke="var(--color-accent)" strokeWidth="2" />
-            {priceLinePoints ? <polyline points={priceLinePoints} fill="none" stroke="var(--color-bid)" strokeWidth="1.5" opacity="0.9" /> : null}
-            <polyline points={visibleSeries.length > 1 ? visibleSeries.map((seriesPoint, seriesIndex) => {
-                const x = replaySeries.length === 1 ? 10 : (seriesIndex / Math.max(1, replaySeries.length - 1)) * 100;
-                const min = Math.min(...replaySeries.map((item) => item.w));
-                const max = Math.max(...replaySeries.map((item) => item.w));
-                const y = max === min ? 30 : 52 - ((seriesPoint.w - min) / (max - min || 1)) * 42;
+            {priceLinePoints ? <polyline points={priceLinePoints} fill="none" stroke="var(--color-bid)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" /> : null}
+            <polyline points={visiblePlotSeries.length > 1 ? visiblePlotSeries.map(({ value: seriesPoint, index: seriesIndex }) => {
+              const x = replaySeries.length === 1 ? 50 : (seriesIndex / Math.max(1, replaySeries.length - 1)) * 100;
+              const min = Math.min(...replaySeries.map((item) => item.w));
+              const max = Math.max(...replaySeries.map((item) => item.w));
+              const y = max === min ? 30 : 52 - ((seriesPoint.w - min) / (max - min || 1)) * 42;
                 return `${x},${y}`;
-              }).join(" ") : ""} fill="none" stroke="var(--color-bid)" strokeWidth="2" opacity="0.9" />
+              }).join(" ") : ""} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
             {activePricePoint ? <circle cx={activePricePoint.x} cy={activePricePoint.y} r="2.2" fill="var(--color-bid)" stroke="var(--color-bg)" strokeWidth="0.5" /> : null}
             {activePoint ? (() => {
               const min = Math.min(...replaySeries.map((item) => item.w));
@@ -410,6 +400,20 @@ function MacroCalendar() {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return <div className="rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]"><p className="text-[10px] uppercase tracking-wide text-subtle">{label}</p><p className="mt-2 font-mono text-sm tabular text-fg">{value}</p></div>;
+}
+
+function sampleIndexed<T>(items: T[], maxPoints: number): Array<{ value: T; index: number }> {
+  if (items.length <= maxPoints) return items.map((value, index) => ({ value, index }));
+  const step = (items.length - 1) / (maxPoints - 1);
+  const sampled: Array<{ value: T; index: number }> = [];
+  let previousIndex = -1;
+  for (let sampleIndex = 0; sampleIndex < maxPoints; sampleIndex += 1) {
+    const index = Math.round(sampleIndex * step);
+    if (index === previousIndex) continue;
+    sampled.push({ value: items[index]!, index });
+    previousIndex = index;
+  }
+  return sampled;
 }
 
 function readNotes(): Record<string, string> {

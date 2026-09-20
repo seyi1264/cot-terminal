@@ -1,6 +1,7 @@
 import { Download, Gauge, History, NotebookPen, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getMarketPrice } from "@/lib/cot/price.functions";
+import { getMacroCalendar, type MacroEvent } from "@/lib/cot/macro.functions";
 import { formatSigned } from "@/lib/cot/format";
 import type { InstrumentReport } from "@/lib/cot/types";
 import { Button } from "@/components/ui/button";
@@ -203,16 +204,9 @@ function Notes({ reports, report, value, onCodeChange, onChange }: { reports: In
 }
 
 function MacroCalendar() {
-  const year = new Date().getUTCFullYear();
-  const events = [
-    ["Every Friday", "CFTC COT release", "Positioning refresh"],
-    [`${year}-09-30`, "US employment report", "Rates / USD catalyst"],
-    [`${year}-10-13`, "US CPI", "Inflation pulse"],
-    [`${year}-10-28`, "FOMC decision", "Policy risk"],
-    [`${year}-11-06`, "US employment report", "Rates / USD catalyst"],
-    [`${year}-12-09`, "FOMC decision", "Policy risk"],
-  ];
-  return <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{events.map(([date, title, detail]) => <div key={`${date}-${title}`} className="rounded-lg bg-bg-elevated p-3 shadow-[var(--shadow-border)]"><p className="font-mono text-xs text-accent">{date}</p><p className="mt-2 text-sm font-medium text-fg">{title}</p><p className="mt-1 text-xs text-muted">{detail}</p></div>)}</div>;
+  const [events, setEvents] = useState<MacroEvent[]>([]);
+  useEffect(() => { void getMacroCalendar({}).then(setEvents).catch(() => setEvents([])); }, []);
+  return <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{events.length ? events.filter((event) => event.impact === "High" || event.impact === "Medium").slice(0, 18).map((event) => <div key={`${event.date}-${event.title}`} className="rounded-lg bg-bg-elevated p-3 shadow-[var(--shadow-border)]"><div className="flex items-center justify-between gap-2"><p className="font-mono text-xs text-accent">{new Date(event.date).toLocaleDateString()}</p><span className={cn("text-[10px] uppercase", event.impact === "High" ? "text-offer" : "text-accent")}>{event.impact}</span></div><p className="mt-2 text-sm font-medium text-fg">{event.title}</p><p className="mt-1 text-xs text-muted">{event.country}{event.forecast ? ` · Forecast ${event.forecast}` : ""}</p></div>) : <p className="rounded-lg bg-bg-elevated p-4 text-sm text-muted">Live macro calendar unavailable right now.</p>}</div>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

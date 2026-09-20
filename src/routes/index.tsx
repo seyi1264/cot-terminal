@@ -9,6 +9,7 @@ import { PressureStrip } from "@/components/pressure-strip";
 import { ResearchDesk } from "@/components/research-desk";
 import { SignalTicker } from "@/components/signal-ticker";
 import { WeeklyBriefing } from "@/components/weekly-briefing";
+import { AnalysisLab } from "@/components/analysis-lab";
 import { WatchlistPanel } from "@/components/watchlist-panel";
 import { Button } from "@/components/ui/button";
 import { getCotBoard } from "@/lib/cot/board.functions";
@@ -174,6 +175,7 @@ function Home() {
           <div className="mt-10">
             <WeeklyBriefing reports={board.instruments} onSelect={setCode} />
           </div>
+          <AnalysisLab reports={board.instruments} />
           <div className="mt-8">
             <ResearchDesk reports={board.instruments} onSelect={setCode} />
           </div>

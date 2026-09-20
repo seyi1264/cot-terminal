@@ -259,7 +259,8 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
   const visiblePlotSeries = sampleIndexed(visibleSeries, 180);
   const activePoint = visibleSeries.at(-1) ?? replaySeries[0];
   const visiblePriceSeries = priceSeries.filter((pricePoint) => pricePoint.x <= playheadX + 0.001);
-  const priceLinePoints = sampleIndexed(visiblePriceSeries, 180).map(({ value: pricePoint }) => `${pricePoint.x},${pricePoint.y}`).join(" ");
+  const chartX = (value: number) => value * 5.2;
+  const priceLinePoints = sampleIndexed(visiblePriceSeries, 180).map(({ value: pricePoint }) => `${chartX(pricePoint.x)},${pricePoint.y}`).join(" ");
   const activePricePoint = visiblePriceSeries.at(-1) ?? null;
 
   return <div className="mt-5 space-y-5">
@@ -343,38 +344,38 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
         <div className="rounded-lg bg-bg p-4 shadow-[var(--shadow-border)]">
           <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-[10px] uppercase tracking-wide text-subtle">Replay chart</p><p className="mt-1 text-xs text-muted">COT positioning and synchronized weekly price</p></div><span className="font-mono text-[11px] text-accent">{range.startDate ?? report.series[0]?.d} → {range.endDate ?? report.series.at(-1)?.d}</span></div>
           <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-accent" /> COT positioning</span><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-bid" /> Price overlay</span><span className="flex items-center gap-1.5"><span className="h-3 w-px border-l border-dashed border-accent" /> Playhead</span></div>
-          <svg viewBox="0 0 100 130" className="mt-2 h-56 w-full" preserveAspectRatio="none" aria-label={`${report.symbol} replay chart with synchronized price overlay`}>
+          <svg viewBox="0 0 520 130" className="mt-2 h-56 w-full" preserveAspectRatio="none" aria-label={`${report.symbol} replay chart with synchronized price overlay`}>
             <defs>
               <linearGradient id={`replay-${report.code}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.5" />
                 <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.1" />
               </linearGradient>
             </defs>
-            <rect x="0" y="4" width="100" height="52" rx="2" fill="var(--color-bg-elevated)" opacity="0.55" />
-            <rect x="0" y="68" width="100" height="52" rx="2" fill="var(--color-bg-elevated)" opacity="0.55" />
+            <rect x="0" y="4" width="520" height="52" rx="2" fill="var(--color-bg-elevated)" opacity="0.55" />
+            <rect x="0" y="68" width="520" height="52" rx="2" fill="var(--color-bg-elevated)" opacity="0.55" />
             <g stroke="var(--color-border)" strokeWidth="0.35" opacity="0.7">
-              {[16, 34, 52, 80, 98, 116].map((y) => <line key={y} x1="0" x2="100" y1={y} y2={y} />)}
-              {[25, 50, 75].map((x) => <line key={x} x1={x} x2={x} y1="4" y2="120" strokeDasharray="1 2" />)}
-              <line x1="0" x2="100" y1="62" y2="62" />
+              {[16, 34, 52, 80, 98, 116].map((y) => <line key={y} x1="0" x2="520" y1={y} y2={y} />)}
+              {[25, 50, 75].map((x) => <line key={x} x1={chartX(x)} x2={chartX(x)} y1="4" y2="120" strokeDasharray="1 2" />)}
+              <line x1="0" x2="520" y1="62" y2="62" />
             </g>
-            <line x1={playheadX} x2={playheadX} y1="4" y2="120" stroke="var(--color-accent)" strokeWidth="1" strokeDasharray="1.5 2" opacity="0.85" />
-            <text x="2" y="10" fill="var(--color-subtle)" fontSize="2.6" letterSpacing="0.35">COT POSITIONING</text>
-            <text x="2" y="74" fill="var(--color-subtle)" fontSize="2.6" letterSpacing="0.35">WEEKLY PRICE</text>
-            {priceLinePoints ? <polyline points={priceLinePoints} fill="none" stroke="var(--color-bid)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" /> : null}
+            <line x1={chartX(playheadX)} x2={chartX(playheadX)} y1="4" y2="120" stroke="var(--color-accent)" strokeWidth="0.9" strokeDasharray="1.5 2" opacity="0.85" />
+            <text x="8" y="10" fill="var(--color-subtle)" fontSize="2.6" letterSpacing="0.35">COT POSITIONING</text>
+            <text x="8" y="74" fill="var(--color-subtle)" fontSize="2.6" letterSpacing="0.35">WEEKLY PRICE</text>
+            {priceLinePoints ? <polyline points={priceLinePoints} fill="none" stroke="var(--color-bid)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" /> : null}
             <polyline points={visiblePlotSeries.length > 1 ? visiblePlotSeries.map(({ value: seriesPoint, index: seriesIndex }) => {
-              const x = replaySeries.length === 1 ? 50 : (seriesIndex / Math.max(1, replaySeries.length - 1)) * 100;
+              const x = replaySeries.length === 1 ? 260 : chartX((seriesIndex / Math.max(1, replaySeries.length - 1)) * 100);
               const min = Math.min(...replaySeries.map((item) => item.w));
               const max = Math.max(...replaySeries.map((item) => item.w));
               const y = max === min ? 30 : 52 - ((seriesPoint.w - min) / (max - min || 1)) * 42;
                 return `${x},${y}`;
-              }).join(" ") : ""} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
-            {activePricePoint ? <circle cx={activePricePoint.x} cy={activePricePoint.y} r="2.2" fill="var(--color-bid)" stroke="var(--color-bg)" strokeWidth="0.5" /> : null}
+              }).join(" ") : ""} fill="none" stroke="var(--color-accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+            {activePricePoint ? <circle cx={chartX(activePricePoint.x)} cy={activePricePoint.y} r="2" fill="var(--color-bid)" stroke="var(--color-bg)" strokeWidth="0.5" /> : null}
             {activePoint ? (() => {
               const min = Math.min(...replaySeries.map((item) => item.w));
               const max = Math.max(...replaySeries.map((item) => item.w));
-              const x = replaySeries.length === 1 ? 50 : (Math.max(0, Math.min(visibleSeries.length - 1, visibleSeries.length - 1)) / Math.max(1, replaySeries.length - 1)) * 100;
+              const x = replaySeries.length === 1 ? 260 : chartX((Math.max(0, Math.min(visibleSeries.length - 1, visibleSeries.length - 1)) / Math.max(1, replaySeries.length - 1)) * 100);
               const y = max === min ? 30 : 52 - ((activePoint.w - min) / (max - min || 1)) * 42;
-              return <circle cx={x} cy={y} r="4" fill="var(--color-accent)" stroke="var(--color-bg)" strokeWidth="0.7" />;
+              return <circle cx={x} cy={y} r="3" fill="var(--color-accent)" stroke="var(--color-bg)" strokeWidth="0.7" />;
             })() : null}
           </svg>
           <div className="mt-2 flex items-center justify-between text-[11px] text-subtle"><span>{replaySeries[0]?.d}</span><span>{activePoint?.d}</span><span>{replaySeries.at(-1)?.d}</span></div>

@@ -1,5 +1,5 @@
 import { Bell, Download, LineChart, NotebookPen, Share2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getMarketHistory } from "@/lib/cot/price.functions";
 import { formatSigned } from "@/lib/cot/format";
 import type { InstrumentReport } from "@/lib/cot/types";
@@ -11,9 +11,9 @@ export function AnalysisLab({ reports }: { reports: InstrumentReport[] }) {
   const [code, setCode] = useState(reports[0]?.code ?? "");
   const [threshold, setThreshold] = useState(90);
   const [note, setNote] = useState("");
-  const report = reports.find((item) => item.code === code) ?? reports[0];
+  const report = useMemo(() => reports.find((item) => item.code === code) ?? reports[0], [reports, code]);
   const [prices, setPrices] = useState<Array<{ date: string; close: number }>>([]);
-  const stats = report ? backtest(report, threshold) : { samples: 0, one: 0, four: 0, twelve: 0 };
+  const stats = useMemo(() => (report ? backtest(report, threshold) : { samples: 0, one: 0, four: 0, twelve: 0 }), [report, threshold]);
   const browserPushReady = typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted";
   const pushSummary = browserPushReady
     ? "Browser alerts are active on this device. The watchlist will notify once the subscription is confirmed."
@@ -30,9 +30,9 @@ export function AnalysisLab({ reports }: { reports: InstrumentReport[] }) {
   }, [code]);
 
   if (!report) return null;
-  const chart = prices.slice(-26);
-  const min = Math.min(...chart.map((item) => item.close));
-  const max = Math.max(...chart.map((item) => item.close));
+  const chart = useMemo(() => prices.slice(-26), [prices]);
+  const min = useMemo(() => (chart.length ? Math.min(...chart.map((item) => item.close)) : 0), [chart]);
+  const max = useMemo(() => (chart.length ? Math.max(...chart.map((item) => item.close)) : 0), [chart]);
 
   function saveNote(value: string) {
     setNote(value);

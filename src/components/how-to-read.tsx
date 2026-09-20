@@ -44,6 +44,30 @@ export function HowToRead({
               When a book approaches its historical high or low, profit taking is the base case.
             </p>
             <p>
+              <strong className="font-medium text-fg">Institutional distribution at the top.</strong>{" "}
+              If commercials are net short while large specs and retail are net long, the pattern can
+              read as a distribution / top-risk context: institutions may be selling into speculative
+              buy liquidity. This is a framework cue, not a certainty trigger.
+            </p>
+            <p>
+              <strong className="font-medium text-fg">Early exit signal.</strong>{" "}
+              Watch for price still near a recent high while commercial net short exposure shrinks,
+              the WO difference rolls over, and open interest contracts. That can be a useful early
+              warning that the book is unwinding, but it still needs chart confirmation.
+            </p>
+            <p>
+              <strong className="font-medium text-fg">Short covering vs. new long accumulation.</strong>{" "}
+              Both can lift the commercial net line, but they are not the same. Short covering is
+              usually a profit-taking move with falling open interest; fresh long accumulation is a
+              stronger conviction read with rising open interest. Context matters.
+            </p>
+            <p>
+              <strong className="font-medium text-fg">Hedge-fund cycle.</strong>{" "}
+              The classic sequence is trapped shorts, forced short covering, trend flip, and then
+              speculative expansion. That sequence is a useful framework for reading positioning,
+              not a hard rule for every market.
+            </p>
+            <p>
               <strong className="font-medium text-fg">Retail divergence</strong> is small specs
               standing the other way from that combined view — a confirming tell at extremes, not
               a trigger on its own.

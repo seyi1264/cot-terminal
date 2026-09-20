@@ -203,6 +203,8 @@ function scoreReading(
   comm: GroupSnapshot,
   retail: GroupSnapshot,
   retailDiverging: boolean,
+  oiChange: number,
+  series: SeriesPoint[],
 ): { score: number; stance: Stance; flags: string[] } {
   let score = 0;
   const flags: string[] = [];
@@ -212,6 +214,34 @@ function scoreReading(
   else if (woIndex >= 65) score += 1;
   else if (woIndex <= 20) score -= 2;
   else if (woIndex <= 35) score -= 1;
+
+  const distributionTop =
+    comm.net < 0 && nc.net > 0 && retail.net > 0 && woDiff > 0 && comm.index <= 35 && nc.index >= 65;
+
+  if (distributionTop) {
+    score -= 2;
+    flags.push(
+      "Commercials are short while non-commercials and retail are long — institutional distribution / top-risk setup",
+    );
+  }
+
+  const latestWo = series.at(-1)?.w ?? woDiff;
+  const priorPeak = Math.max(...series.slice(-13).map((point) => point.w));
+  const commercialExitSignal = comm.net < 0 && comm.dNet > 0 && latestWo < priorPeak && oiChange < 0;
+  if (commercialExitSignal) {
+    flags.push(
+      "Commercials are closing shorts and reducing exposure while price still sits near a recent high — early reversal footprint",
+    );
+    score -= 1;
+  }
+
+  const strongerAccumulation = comm.net > 0 && comm.dNet > 0 && oiChange > 0 && nc.net > 0;
+  if (strongerAccumulation) {
+    flags.push(
+      "Fresh long accumulation is building with rising open interest — stronger than passive short covering",
+    );
+    score += 1;
+  }
 
   if (comm.index <= 20) {
     score += 2;
@@ -244,6 +274,12 @@ function scoreReading(
   if (comm.flow.kind === "accum-long") {
     score -= 1;
     flags.push("Commercial accumulation (longs / hedging a decline)");
+  }
+  if (comm.flow.kind === "cover-short" && oiChange < 0) {
+    flags.push("Commercial short covering is underway — early profit-taking rather than fresh bullish conviction");
+  }
+  if (comm.flow.kind === "accum-long" && oiChange > 0) {
+    flags.push("Commercial longs are being added with rising open interest — stronger accumulation than simple short covering");
   }
 
   if (nc.flow.kind === "profit-long" && nc.index >= 70) {
@@ -310,15 +346,27 @@ function narrative(
     woIndex <= 35 ? "leaning offer versus the all-history range" :
     "mid-range — not an extreme";
 
+  const distributionSetup =
+    comm.net < 0 && nc.net > 0 && retail.net > 0 && woDiff > 0
+      ? "Commercials are short while large specs and retail are long, which is a classic distribution / top-risk setup: the market is being sold into speculative demand."
+      : "The positioning is not yet a clean distribution setup; the book remains mixed and needs chart confirmation.";
+
+  const hedgeFundCycle =
+    comm.net < 0 && nc.net > 0
+      ? "The hedge-fund cycle is often: trapped shorts, forced short covering, trend flip, then speculative expansion at the top of the move."
+      : "The hedge-fund cycle is still unfolding, and the signal must be checked against the chart before assuming a full trend change.";
+
   const parts = [
     `Non-commercials are net ${formatSigned(nc.net)} and ${nc.flow.label.toLowerCase()} this week (${formatSigned(nc.dNet)}).`,
     `Commercials are net ${formatSigned(comm.net)} — ${comm.flow.woLabel.toLowerCase()} (${formatSigned(comm.dNet)}).`,
     `Retail (non-reportable) sits net ${formatSigned(retail.net)}, ${retail.flow.label.toLowerCase()}.`,
     `White Oak difference (large-spec net minus commercial net) is ${formatSigned(woDiff)}, index ${woIndex.toFixed(0)} — ${extreme}.`,
+    distributionSetup,
+    hedgeFundCycle,
   ];
   if (flags[0]) parts.push(flags[0] + ".");
   parts.push(
-    "This is positioning context, not a trigger: confirm against the chart's demand and supply before acting.",
+    "The key distinction: short covering is a passive profit-taking move with falling open interest, while fresh long accumulation is a stronger conviction move with rising open interest. Confirm the read with the chart's demand and supply before acting.",
   );
   return { headline, body: parts.join(" ") };
 }
@@ -342,16 +390,6 @@ export function analyzeInstrument(
   const retailDiverging =
     Math.sign(retail.net) !== 0 && Math.sign(retail.net) !== Math.sign(woDiff || nc.net);
 
-  const { score, stance, flags } = scoreReading(
-    woDiff,
-    woIndex,
-    nc,
-    comm,
-    retail,
-    retailDiverging,
-  );
-  const { headline, body } = narrative(def, nc, comm, retail, woDiff, woIndex, stance, flags);
-
   const series: SeriesPoint[] = prints.map((p) => ({
     d: p.date,
     n: p.noncomm.net,
@@ -360,6 +398,18 @@ export function analyzeInstrument(
     w: p.woDiff,
     o: p.oi,
   }));
+
+  const { score, stance, flags } = scoreReading(
+    woDiff,
+    woIndex,
+    nc,
+    comm,
+    retail,
+    retailDiverging,
+    latest.oiChange,
+    series,
+  );
+  const { headline, body } = narrative(def, nc, comm, retail, woDiff, woIndex, stance, flags);
 
   return {
     code: def.code,

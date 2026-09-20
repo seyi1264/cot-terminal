@@ -166,7 +166,6 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
   const [priceHistory, setPriceHistory] = useState<Array<{ date: string; close: number }>>([]);
   const point = report.series[index] ?? report.series.at(-1);
   const latest = report.series.at(-1);
-  const progress = report.series.length > 1 ? (index / (report.series.length - 1)) * 100 : 100;
   const [price, setPrice] = useState<{ close: number; date: string } | null>(null);
   const replaySeries = useMemo(
     () => report.series.slice(range.start, range.end + 1),
@@ -285,22 +284,13 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
           Oldest CFTC date in this series: <span className="font-mono font-medium">{absoluteOldestDate}</span>
         </div>
       </div>
-      <label className="mt-4 block max-w-3xl text-xs text-muted">Historical week <input type="range" min={range.start} max={range.end} value={index} onChange={(event) => { setIsPlaying(false); onIndexChange(Number(event.target.value)); }} className="mt-3 w-full accent-[var(--color-accent)]" style={{ "--range-progress": `${progress}%` } as React.CSSProperties} /><span className="mt-2 flex justify-between font-mono text-[11px] text-subtle"><span>{report.series[range.start]?.d}</span><span>{point?.d}</span><span>{report.series[range.end]?.d}</span></span></label>
       <div className="mt-3 max-w-3xl rounded-lg bg-bg p-2 shadow-[var(--shadow-border)]">
         <div className="mb-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-subtle">
-          <span>Scrubber</span>
+          <span>Replay position</span>
           <span>{report.series[index]?.d ?? point?.d}</span>
         </div>
-        <div className="relative flex h-3.5 items-center">
-          <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-border" />
-          {replaySeries.map((seriesPoint, seriesIndex) => {
-            const isActive = index >= range.start + seriesIndex && index <= range.end;
-            return <button key={`${seriesPoint.d}-${seriesIndex}`} type="button" onClick={() => { setIsPlaying(false); onIndexChange(range.start + seriesIndex); }} className="relative z-10 flex-1" aria-label={`Jump to ${seriesPoint.d}`}>
-              <span className={cn("mx-auto block h-2.5 w-2.5 rounded-full border transition-colors", isActive ? "bg-accent border-accent" : "bg-bg border-border")} />
-            </button>;
-          })}
-          <span className="absolute top-1/2 z-20 h-3.5 w-3.5 -translate-y-1/2 rounded-full border border-accent bg-accent" style={{ left: `${Math.max(0, Math.min(100, (Math.max(0, index - range.start) / Math.max(1, range.end - range.start)) * 100))}%` }} />
-        </div>
+        <input type="range" min={range.start} max={range.end} value={index} onChange={(event) => { setIsPlaying(false); onIndexChange(Number(event.target.value)); }} className="block h-2 w-full accent-[var(--color-accent)]" aria-label="Replay position" />
+        <div className="mt-2 flex justify-between font-mono text-[10px] text-subtle"><span>{replayStartDate}</span><span>{replayEndDate}</span></div>
       </div>
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <Button variant="quiet" size="sm" onClick={() => { if (isPlaying) { setIsPlaying(false); } else { playRange(); } }}>{isPlaying ? "Pause" : "Play replay"}</Button>
@@ -362,7 +352,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
         <div className="rounded-lg bg-bg p-4 shadow-[var(--shadow-border)]">
           <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-[10px] uppercase tracking-wide text-subtle">Replay chart</p><p className="mt-1 text-xs text-muted">COT positioning and synchronized weekly price</p></div><span className="font-mono text-[11px] text-accent">{range.startDate ?? report.series[0]?.d} → {range.endDate ?? report.series.at(-1)?.d}</span></div>
           <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-accent" /> COT positioning</span><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-bid" /> Price overlay</span><span className="flex items-center gap-1.5"><span className="h-3 w-px border-l border-dashed border-accent" /> Playhead</span></div>
-          <svg viewBox="0 0 100 100" className="mt-2 h-48 w-full" aria-label={`${report.symbol} replay chart with synchronized price overlay`}>
+          <svg viewBox="0 0 100 130" className="mt-2 h-56 w-full" preserveAspectRatio="none" aria-label={`${report.symbol} replay chart with synchronized price overlay`}>
             <defs>
               <linearGradient id={`replay-${report.code}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.5" />

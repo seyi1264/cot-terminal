@@ -13,7 +13,6 @@ import type {
   WeeklyPrint,
 } from "./types";
 
-const SERIES_LOOKBACK = 156;
 const AVG_WINDOW = 13;
 const FLOW_EPS = 80;
 
@@ -353,7 +352,7 @@ export function analyzeInstrument(
   );
   const { headline, body } = narrative(def, nc, comm, retail, woDiff, woIndex, stance, flags);
 
-  const series: SeriesPoint[] = prints.slice(-SERIES_LOOKBACK).map((p) => ({
+  const series: SeriesPoint[] = prints.map((p) => ({
     d: p.date,
     n: p.noncomm.net,
     c: p.comm.net,

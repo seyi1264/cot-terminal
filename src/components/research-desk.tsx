@@ -161,6 +161,7 @@ function buildPerformance(reports: InstrumentReport[]) {
 function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect }: { report: InstrumentReport; reports: InstrumentReport[]; index: number; onCodeChange: (code: string) => void; onIndexChange: (index: number) => void; onSelect: (code: string) => void }) {
   const [isRangeModalOpen, setIsRangeModalOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [range, setRange] = useState(() => resolveReplayRange(report.series, report.series[0]?.d, report.series.at(-1)?.d));
   const point = report.series[index] ?? report.series.at(-1);
   const latest = report.series.at(-1);
@@ -198,9 +199,10 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
       setIsPlaying(false);
       return;
     }
-    const id = window.setTimeout(() => onIndexChange(Math.min(index + 1, range.end)), 350);
+    const delay = 700 / playbackSpeed;
+    const id = window.setTimeout(() => onIndexChange(Math.min(index + 1, range.end)), delay);
     return () => window.clearTimeout(id);
-  }, [index, isPlaying, onIndexChange, range.end]);
+  }, [index, isPlaying, onIndexChange, playbackSpeed, range.end]);
 
   function updateRange(startDate: string, endDate: string) {
     const nextRange = resolveReplayRange(report.series, startDate, endDate);
@@ -241,9 +243,31 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
         <div className="flex items-center justify-between gap-2"><span>{report.series[range.start]?.d ?? report.series[0]?.d}</span><span className="font-mono text-accent">→</span><span>{report.series[range.end]?.d ?? report.series.at(-1)?.d}</span></div>
       </div>
       <label className="mt-4 block text-xs text-muted">Historical week <input type="range" min={range.start} max={range.end} value={index} onChange={(event) => { setIsPlaying(false); onIndexChange(Number(event.target.value)); }} className="mt-3 w-full accent-[var(--color-accent)]" style={{ "--range-progress": `${progress}%` } as React.CSSProperties} /><span className="mt-2 flex justify-between font-mono text-[11px] text-subtle"><span>{report.series[range.start]?.d}</span><span>{point?.d}</span><span>{report.series[range.end]?.d}</span></span></label>
-      <div className="mt-5 flex gap-2">
-        <Button variant="quiet" size="sm" onClick={playRange}>{isPlaying ? "Playing" : "Play replay"}</Button>
+      <div className="mt-3 rounded-lg bg-bg p-2 shadow-[var(--shadow-border)]">
+        <div className="mb-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-subtle">
+          <span>Scrubber</span>
+          <span>{report.series[index]?.d ?? point?.d}</span>
+        </div>
+        <div className="relative flex h-3.5 items-center">
+          <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-border" />
+          {replaySeries.map((seriesPoint, seriesIndex) => {
+            const isActive = index >= range.start + seriesIndex && index <= range.end;
+            return <button key={`${seriesPoint.d}-${seriesIndex}`} type="button" onClick={() => { setIsPlaying(false); onIndexChange(range.start + seriesIndex); }} className="relative z-10 flex-1" aria-label={`Jump to ${seriesPoint.d}`}>
+              <span className={cn("mx-auto block h-2.5 w-2.5 rounded-full border transition-colors", isActive ? "bg-accent border-accent" : "bg-bg border-border")} />
+            </button>;
+          })}
+          <span className="absolute top-1/2 z-20 h-3.5 w-3.5 -translate-y-1/2 rounded-full border border-accent bg-accent" style={{ left: `${Math.max(0, Math.min(100, (Math.max(0, index - range.start) / Math.max(1, range.end - range.start)) * 100))}%` }} />
+        </div>
+      </div>
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <Button variant="quiet" size="sm" onClick={() => { if (isPlaying) { setIsPlaying(false); } else { playRange(); } }}>{isPlaying ? "Pause" : "Play replay"}</Button>
         <Button variant="quiet" size="sm" onClick={() => { setIsPlaying(false); onIndexChange(range.start); }}>Reset</Button>
+        <label className="flex items-center gap-2 text-xs text-muted">
+          Speed
+          <select value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))} className="h-8 rounded-md border border-border bg-bg px-2 text-xs text-fg">
+            {[0.5, 1, 2, 4].map((speed) => <option key={speed} value={speed}>{speed}x</option>)}
+          </select>
+        </label>
         <Button variant="quiet" size="sm" onClick={() => onSelect(report.code)}>Open full detail</Button>
       </div>
       <Dialog.Root open={isRangeModalOpen} onOpenChange={setIsRangeModalOpen}>

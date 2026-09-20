@@ -11,6 +11,13 @@ import { WeeklyBriefing } from "@/components/weekly-briefing";
 import { WatchlistPanel } from "@/components/watchlist-panel";
 import { Button } from "@/components/ui/button";
 import { getCotBoard } from "@/lib/cot/board.functions";
+import {
+  DEFAULT_WATCHLIST_SETTINGS,
+  getWatchAlerts,
+  notificationSupport,
+  showWatchAlerts,
+  type WatchlistSettings,
+} from "@/lib/cot/watchlist";
 import { CATEGORY_LABEL } from "@/lib/cot/instruments";
 import { formatDate } from "@/lib/cot/format";
 import type { CotCategory, InstrumentReport } from "@/lib/cot/types";
@@ -40,6 +47,10 @@ function Home() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
   const [watchlistCodes, setWatchlistCodes] = useState<string[]>([]);
+  const [watchlistSettings, setWatchlistSettings] = useState<WatchlistSettings>(DEFAULT_WATCHLIST_SETTINGS);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(
+    "default",
+  );
   const [sort, setSort] = useState<SortKey>("stance");
   const cat = (CATS.includes(search.cat as CatFilter) ? search.cat : "all") as CatFilter;
 
@@ -53,13 +64,37 @@ function Home() {
 
   const active = board.instruments.find((row) => row.code === search.code) ?? null;
   const watchedReports = board.instruments.filter((row) => watchlistCodes.includes(row.code));
+  const watchAlerts = getWatchAlerts(board.instruments, watchlistCodes, watchlistSettings);
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem("oak-ledger-watchlist") ?? "null") as { codes?: unknown } | null;
+      const saved = JSON.parse(localStorage.getItem("oak-ledger-watchlist") ?? "null") as {
+        codes?: unknown;
+        settings?: Partial<WatchlistSettings>;
+      } | null;
       if (Array.isArray(saved?.codes)) setWatchlistCodes(saved.codes.filter((code): code is string => typeof code === "string"));
+      if (saved?.settings) setWatchlistSettings({
+        extremeThreshold: typeof saved.settings.extremeThreshold === "number" ? saved.settings.extremeThreshold : DEFAULT_WATCHLIST_SETTINGS.extremeThreshold,
+        shiftThreshold: typeof saved.settings.shiftThreshold === "number" ? saved.settings.shiftThreshold : DEFAULT_WATCHLIST_SETTINGS.shiftThreshold,
+        notificationsEnabled: saved.settings.notificationsEnabled === true,
+      });
     } catch {
+      setWatchlistCodes([]);
     }
+    setNotificationPermission(notificationSupport());
+  }, []);
+
+  useEffect(() => {
+    if (!watchlistSettings.notificationsEnabled || notificationPermission !== "granted" || !watchAlerts.length) return;
+    const fingerprint = `${board.asOf}:${watchAlerts.map((alert) => `${alert.code}:${alert.reasons.join("|")}`).join(",")}`;
+    const previous = localStorage.getItem("oak-ledger-last-notification");
+    localStorage.setItem("oak-ledger-last-notification", fingerprint);
+    if (previous && previous !== fingerprint) void showWatchAlerts(watchAlerts);
+  }, [board.asOf, notificationPermission, watchAlerts, watchlistSettings.notificationsEnabled]);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    void navigator.serviceWorker.register("/notification-worker.js");
   }, []);
 
   function setCode(code?: string) {
@@ -234,6 +269,10 @@ function Home() {
         onClose={() => setWatchlistOpen(false)}
         codes={watchlistCodes}
         onCodesChange={setWatchlistCodes}
+        settings={watchlistSettings}
+        onSettingsChange={setWatchlistSettings}
+        notificationPermission={notificationPermission}
+        onNotificationPermissionChange={setNotificationPermission}
       />
     </div>
   );

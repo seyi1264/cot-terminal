@@ -1,22 +1,17 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Bell, Check, Star, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { formatSigned } from "@/lib/cot/format";
+import {
+  DEFAULT_WATCHLIST_SETTINGS,
+  type WatchlistSettings,
+  getWatchAlerts,
+  requestNotificationPermission,
+} from "@/lib/cot/watchlist";
 import type { InstrumentReport } from "@/lib/cot/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "oak-ledger-watchlist";
-
-type WatchlistSettings = {
-  extremeThreshold: number;
-  shiftThreshold: number;
-};
-
-const DEFAULT_SETTINGS: WatchlistSettings = {
-  extremeThreshold: 90,
-  shiftThreshold: 100_000,
-};
 
 export function WatchlistPanel({
   reports,
@@ -24,14 +19,21 @@ export function WatchlistPanel({
   onClose,
   codes,
   onCodesChange,
+  settings,
+  onSettingsChange,
+  notificationPermission,
+  onNotificationPermissionChange,
 }: {
   reports: InstrumentReport[];
   open: boolean;
   onClose: () => void;
   codes: string[];
   onCodesChange: (codes: string[]) => void;
+  settings: WatchlistSettings;
+  onSettingsChange: (settings: WatchlistSettings) => void;
+  notificationPermission: NotificationPermission | "unsupported";
+  onNotificationPermissionChange: (permission: NotificationPermission | "unsupported") => void;
 }) {
-  const [settings, setSettings] = useState<WatchlistSettings>(DEFAULT_SETTINGS);
   const [hydrated, setHydrated] = useState(false);
   const watched = useMemo(
     () => reports.filter((report) => codes.includes(report.code)),
@@ -48,16 +50,17 @@ export function WatchlistPanel({
         onCodesChange(saved.codes.filter((code): code is string => typeof code === "string"));
       }
       if (saved?.settings) {
-        setSettings({
-          extremeThreshold: numberOrDefault(saved.settings.extremeThreshold, DEFAULT_SETTINGS.extremeThreshold),
-          shiftThreshold: numberOrDefault(saved.settings.shiftThreshold, DEFAULT_SETTINGS.shiftThreshold),
+        onSettingsChange({
+          extremeThreshold: numberOrDefault(saved.settings.extremeThreshold, DEFAULT_WATCHLIST_SETTINGS.extremeThreshold),
+          shiftThreshold: numberOrDefault(saved.settings.shiftThreshold, DEFAULT_WATCHLIST_SETTINGS.shiftThreshold),
+          notificationsEnabled: saved.settings.notificationsEnabled === true,
         });
       }
     } catch {
       setHydrated(true);
     }
     setHydrated(true);
-  }, [onCodesChange]);
+  }, [onCodesChange, onSettingsChange]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -66,6 +69,16 @@ export function WatchlistPanel({
 
   function toggleCode(code: string) {
     onCodesChange(codes.includes(code) ? codes.filter((item) => item !== code) : [...codes, code]);
+  }
+
+  async function enableNotifications() {
+    const permission = await requestNotificationPermission();
+    onNotificationPermissionChange(permission);
+    if (permission === "granted") onSettingsChange({ ...settings, notificationsEnabled: true });
+  }
+
+  function updateSettings(patch: Partial<WatchlistSettings>) {
+    onSettingsChange({ ...settings, ...patch });
   }
 
   return (
@@ -145,7 +158,7 @@ export function WatchlistPanel({
                   Extreme WO index
                   <select
                     value={settings.extremeThreshold}
-                    onChange={(event) => setSettings((current) => ({ ...current, extremeThreshold: Number(event.target.value) }))}
+                    onChange={(event) => updateSettings({ extremeThreshold: Number(event.target.value) })}
                     className="mt-1 h-9 w-full rounded-md bg-bg px-2 text-sm text-fg shadow-[var(--shadow-border)]"
                   >
                     {[80, 85, 90, 95].map((value) => <option key={value} value={value}>{value}% or beyond</option>)}
@@ -155,12 +168,33 @@ export function WatchlistPanel({
                   Weekly shift
                   <select
                     value={settings.shiftThreshold}
-                    onChange={(event) => setSettings((current) => ({ ...current, shiftThreshold: Number(event.target.value) }))}
+                    onChange={(event) => updateSettings({ shiftThreshold: Number(event.target.value) })}
                     className="mt-1 h-9 w-full rounded-md bg-bg px-2 text-sm text-fg shadow-[var(--shadow-border)]"
                   >
                     {[50_000, 100_000, 250_000, 500_000].map((value) => <option key={value} value={value}>{value.toLocaleString()} contracts</option>)}
                   </select>
                 </label>
+              </div>
+              <div className="mt-5 flex items-center justify-between gap-4 rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]">
+                <div>
+                  <p className="text-sm text-fg">Browser notifications</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">
+                    {notificationPermission === "granted"
+                      ? "Enabled on this browser, phone, or desktop when a fresh snapshot loads."
+                      : notificationPermission === "denied"
+                        ? "Blocked by the browser. Re-enable Oak & Ledger in site settings."
+                        : notificationPermission === "unsupported"
+                          ? "This browser does not support notifications."
+                          : "Get a device notification when a fresh snapshot crosses a threshold."}
+                  </p>
+                </div>
+                {notificationPermission === "granted" ? (
+                  <span className="shrink-0 text-xs text-bid">Enabled</span>
+                ) : notificationPermission === "unsupported" || notificationPermission === "denied" ? null : (
+                  <Button variant="quiet" size="sm" onClick={enableNotifications}>
+                    Enable
+                  </Button>
+                )}
               </div>
             </section>
 
@@ -175,13 +209,7 @@ export function WatchlistPanel({
               {watched.length ? (
                 <div className="mt-4 space-y-2">
                   {watched.map((report) => {
-                    const extreme = Math.max(report.woIndex, 100 - report.woIndex);
-                    const reasons = [
-                      extreme >= settings.extremeThreshold ? `Extreme ${extreme.toFixed(0)}% reading` : null,
-                      Math.abs(report.woDiffChange) >= settings.shiftThreshold
-                        ? `Weekly shift ${formatSigned(report.woDiffChange)}`
-                        : null,
-                    ].filter(Boolean) as string[];
+                    const reasons = getWatchAlerts([report], [report.code], settings)[0]?.reasons ?? [];
                     return (
                       <div key={report.code} className="flex items-center justify-between gap-4 rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]">
                         <div>

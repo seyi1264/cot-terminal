@@ -218,7 +218,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
         if (!matchingPrice) return null;
         const close = matchingPrice.close;
         const x = replaySeries.length === 1 ? 50 : (seriesIndex / Math.max(1, replaySeries.length - 1)) * 100;
-        const y = max === min ? 50 : 100 - ((close - min) / (max - min || 1)) * 90;
+        const y = max === min ? 94 : 114 - ((close - min) / (max - min || 1)) * 42;
         return { date: seriesPoint.d, x, y, close };
       })
       .filter((point): point is { date: string; x: number; y: number; close: number } => point !== null);
@@ -262,7 +262,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
           const x = replaySeries.length === 1 ? 10 : (seriesIndex / (replaySeries.length - 1)) * 100;
           const min = Math.min(...replaySeries.map((item) => item.w));
           const max = Math.max(...replaySeries.map((item) => item.w));
-          const y = max === min ? 50 : 100 - ((seriesPoint.w - min) / (max - min || 1)) * 90;
+          const y = max === min ? 30 : 52 - ((seriesPoint.w - min) / (max - min || 1)) * 42;
           return `${x},${y}`;
         })
         .join(" ")
@@ -285,8 +285,8 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
           Oldest CFTC date in this series: <span className="font-mono font-medium">{absoluteOldestDate}</span>
         </div>
       </div>
-      <label className="mt-4 block text-xs text-muted">Historical week <input type="range" min={range.start} max={range.end} value={index} onChange={(event) => { setIsPlaying(false); onIndexChange(Number(event.target.value)); }} className="mt-3 w-full accent-[var(--color-accent)]" style={{ "--range-progress": `${progress}%` } as React.CSSProperties} /><span className="mt-2 flex justify-between font-mono text-[11px] text-subtle"><span>{report.series[range.start]?.d}</span><span>{point?.d}</span><span>{report.series[range.end]?.d}</span></span></label>
-      <div className="mt-3 rounded-lg bg-bg p-2 shadow-[var(--shadow-border)]">
+      <label className="mt-4 block max-w-3xl text-xs text-muted">Historical week <input type="range" min={range.start} max={range.end} value={index} onChange={(event) => { setIsPlaying(false); onIndexChange(Number(event.target.value)); }} className="mt-3 w-full accent-[var(--color-accent)]" style={{ "--range-progress": `${progress}%` } as React.CSSProperties} /><span className="mt-2 flex justify-between font-mono text-[11px] text-subtle"><span>{report.series[range.start]?.d}</span><span>{point?.d}</span><span>{report.series[range.end]?.d}</span></span></label>
+      <div className="mt-3 max-w-3xl rounded-lg bg-bg p-2 shadow-[var(--shadow-border)]">
         <div className="mb-2 flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-subtle">
           <span>Scrubber</span>
           <span>{report.series[index]?.d ?? point?.d}</span>
@@ -369,14 +369,19 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
                 <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.1" />
               </linearGradient>
             </defs>
-            <line x1={playheadX} x2={playheadX} y1="8" y2="92" stroke="var(--color-accent)" strokeWidth="1.2" strokeDasharray="2 3" opacity="0.9" />
+            <rect x="0" y="4" width="100" height="52" rx="2" fill="var(--color-bg-elevated)" opacity="0.55" />
+            <rect x="0" y="68" width="100" height="52" rx="2" fill="var(--color-bg-elevated)" opacity="0.55" />
+            <line x1="0" x2="100" y1="62" y2="62" stroke="var(--color-border)" strokeWidth="0.5" />
+            <line x1={playheadX} x2={playheadX} y1="4" y2="120" stroke="var(--color-accent)" strokeWidth="1.2" strokeDasharray="2 3" opacity="0.9" />
+            <text x="2" y="11" fill="var(--color-subtle)" fontSize="3" letterSpacing="0.4">COT POSITIONING</text>
+            <text x="2" y="75" fill="var(--color-subtle)" fontSize="3" letterSpacing="0.4">WEEKLY PRICE</text>
             <polyline points={chartPoints} fill="none" stroke="var(--color-accent)" strokeWidth="2" />
             {priceLinePoints ? <polyline points={priceLinePoints} fill="none" stroke="var(--color-bid)" strokeWidth="1.5" opacity="0.9" /> : null}
             <polyline points={visibleSeries.length > 1 ? visibleSeries.map((seriesPoint, seriesIndex) => {
                 const x = replaySeries.length === 1 ? 10 : (seriesIndex / Math.max(1, replaySeries.length - 1)) * 100;
                 const min = Math.min(...replaySeries.map((item) => item.w));
                 const max = Math.max(...replaySeries.map((item) => item.w));
-                const y = max === min ? 50 : 100 - ((seriesPoint.w - min) / (max - min || 1)) * 90;
+                const y = max === min ? 30 : 52 - ((seriesPoint.w - min) / (max - min || 1)) * 42;
                 return `${x},${y}`;
               }).join(" ") : ""} fill="none" stroke="var(--color-bid)" strokeWidth="2" opacity="0.9" />
             {activePricePoint ? <circle cx={activePricePoint.x} cy={activePricePoint.y} r="2.2" fill="var(--color-bid)" stroke="var(--color-bg)" strokeWidth="0.5" /> : null}
@@ -384,7 +389,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
               const min = Math.min(...replaySeries.map((item) => item.w));
               const max = Math.max(...replaySeries.map((item) => item.w));
               const x = replaySeries.length === 1 ? 50 : (Math.max(0, Math.min(visibleSeries.length - 1, visibleSeries.length - 1)) / Math.max(1, replaySeries.length - 1)) * 100;
-              const y = max === min ? 50 : 100 - ((activePoint.w - min) / (max - min || 1)) * 90;
+              const y = max === min ? 30 : 52 - ((activePoint.w - min) / (max - min || 1)) * 42;
               return <circle cx={x} cy={y} r="4" fill="var(--color-accent)" stroke="var(--color-bg)" strokeWidth="0.7" />;
             })() : null}
           </svg>

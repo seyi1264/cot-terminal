@@ -1,11 +1,13 @@
-import { Download, Gauge, History, NotebookPen, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { Download, Gauge, History, NotebookPen, TrendingUp, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { getMarketPrice } from "@/lib/cot/price.functions";
 import { getMacroCalendar, type MacroEvent } from "@/lib/cot/macro.functions";
 import { formatSigned } from "@/lib/cot/format";
 import type { InstrumentReport } from "@/lib/cot/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { clampReplayRange, resolveReplayRange } from "@/lib/cot/replay-window";
 
 type DeskTab = "confluence" | "replay" | "notes" | "calendar";
 
@@ -157,10 +159,17 @@ function buildPerformance(reports: InstrumentReport[]) {
 }
 
 function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect }: { report: InstrumentReport; reports: InstrumentReport[]; index: number; onCodeChange: (code: string) => void; onIndexChange: (index: number) => void; onSelect: (code: string) => void }) {
+  const [isRangeModalOpen, setIsRangeModalOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [range, setRange] = useState(() => resolveReplayRange(report.series, report.series[0]?.d, report.series.at(-1)?.d));
   const point = report.series[index] ?? report.series.at(-1);
   const latest = report.series.at(-1);
   const progress = report.series.length > 1 ? (index / (report.series.length - 1)) * 100 : 100;
   const [price, setPrice] = useState<{ close: number; date: string } | null>(null);
+  const replaySeries = useMemo(
+    () => report.series.slice(range.start, range.end + 1),
+    [range, report.series],
+  );
 
   useEffect(() => {
     const symbol = PRICE_SYMBOLS[report.pair];
@@ -177,20 +186,136 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
     };
   }, [report.pair]);
 
+  useEffect(() => {
+    const defaults = resolveReplayRange(report.series, report.series[0]?.d, report.series.at(-1)?.d);
+    setRange(defaults);
+    onIndexChange(defaults.end);
+  }, [report.code, report.series, onIndexChange]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    if (index >= range.end) {
+      setIsPlaying(false);
+      return;
+    }
+    const id = window.setTimeout(() => onIndexChange(Math.min(index + 1, range.end)), 350);
+    return () => window.clearTimeout(id);
+  }, [index, isPlaying, onIndexChange, range.end]);
+
+  function updateRange(startDate: string, endDate: string) {
+    const nextRange = resolveReplayRange(report.series, startDate, endDate);
+    setRange(nextRange);
+    onIndexChange(nextRange.start);
+    setIsPlaying(false);
+    setIsRangeModalOpen(false);
+  }
+
+  function playRange() {
+    setIsPlaying(true);
+    onIndexChange(range.start);
+  }
+
+  const chartPoints = replaySeries.length
+    ? replaySeries
+        .map((seriesPoint, seriesIndex) => {
+          const x = replaySeries.length === 1 ? 10 : (seriesIndex / (replaySeries.length - 1)) * 100;
+          const min = Math.min(...replaySeries.map((item) => item.w));
+          const max = Math.max(...replaySeries.map((item) => item.w));
+          const y = max === min ? 50 : 100 - ((seriesPoint.w - min) / (max - min || 1)) * 90;
+          return `${x},${y}`;
+        })
+        .join(" ")
+    : "";
+  const currentWindowIndex = Math.max(0, Math.min(index, range.end) - range.start);
+  const visibleSeries = replaySeries.slice(0, Math.max(1, currentWindowIndex + 1));
+  const activePoint = visibleSeries.at(-1) ?? replaySeries[0];
+
   return <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1.4fr]">
     <div>
       <label className="text-xs text-muted">Instrument<select value={report.code} onChange={(event) => onCodeChange(event.target.value)} className="mt-1 h-9 w-full rounded-md bg-bg-elevated px-2 text-sm text-fg shadow-[var(--shadow-border)]">{reports.map((item) => <option key={item.code} value={item.code}>{item.symbol} · {item.name}</option>)}</select></label>
-      <label className="mt-4 block text-xs text-muted">Historical week <input type="range" min="0" max={Math.max(0, report.series.length - 1)} value={index} onChange={(event) => onIndexChange(Number(event.target.value))} className="mt-3 w-full accent-[var(--color-accent)]" style={{ "--range-progress": `${progress}%` } as React.CSSProperties} /><span className="mt-2 flex justify-between font-mono text-[11px] text-subtle"><span>{report.series[0]?.d}</span><span>{point?.d}</span><span>{latest?.d}</span></span></label>
-      <Button variant="quiet" size="sm" className="mt-5" onClick={() => onSelect(report.code)}>Open full detail</Button>
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <p className="text-xs text-muted">Replay window</p>
+        <Button variant="quiet" size="sm" onClick={() => setIsRangeModalOpen(true)}>Select dates</Button>
+      </div>
+      <div className="mt-2 rounded-lg bg-bg-elevated p-3 text-xs text-muted shadow-[var(--shadow-border)]">
+        <div className="flex items-center justify-between gap-2"><span>{report.series[range.start]?.d ?? report.series[0]?.d}</span><span className="font-mono text-accent">→</span><span>{report.series[range.end]?.d ?? report.series.at(-1)?.d}</span></div>
+      </div>
+      <label className="mt-4 block text-xs text-muted">Historical week <input type="range" min={range.start} max={range.end} value={index} onChange={(event) => { setIsPlaying(false); onIndexChange(Number(event.target.value)); }} className="mt-3 w-full accent-[var(--color-accent)]" style={{ "--range-progress": `${progress}%` } as React.CSSProperties} /><span className="mt-2 flex justify-between font-mono text-[11px] text-subtle"><span>{report.series[range.start]?.d}</span><span>{point?.d}</span><span>{report.series[range.end]?.d}</span></span></label>
+      <div className="mt-5 flex gap-2">
+        <Button variant="quiet" size="sm" onClick={playRange}>{isPlaying ? "Playing" : "Play replay"}</Button>
+        <Button variant="quiet" size="sm" onClick={() => { setIsPlaying(false); onIndexChange(range.start); }}>Reset</Button>
+        <Button variant="quiet" size="sm" onClick={() => onSelect(report.code)}>Open full detail</Button>
+      </div>
+      <Dialog.Root open={isRangeModalOpen} onOpenChange={setIsRangeModalOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-bg/70 data-[state=open]:animate-in" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,30rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow-border)] outline-none">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Dialog.Title className="font-display text-xl text-fg">Replay date range</Dialog.Title>
+                <Dialog.Description className="mt-1 text-sm text-muted">Choose the date window to replay through the historical COT series.</Dialog.Description>
+              </div>
+              <Button variant="quiet" size="icon" onClick={() => setIsRangeModalOpen(false)} aria-label="Close replay window picker">
+                <X className="size-4" />
+              </Button>
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="text-xs text-muted">Start date<select value={report.series[range.start]?.d ?? report.series[0]?.d} onChange={(event) => {
+                  const nextStart = event.target.value;
+                  const nextRange = clampReplayRange(report.series.length, report.series.findIndex((point) => point.d === nextStart), range.end);
+                  setRange({ ...nextRange, startDate: report.series[nextRange.start]?.d, endDate: report.series[nextRange.end]?.d });
+                }} className="mt-1 h-9 w-full rounded-md bg-bg px-2 text-sm text-fg shadow-[var(--shadow-border)]">{report.series.map((point) => <option key={point.d} value={point.d}>{point.d}</option>)}</select></label>
+              <label className="text-xs text-muted">End date<select value={report.series[range.end]?.d ?? report.series.at(-1)?.d} onChange={(event) => {
+                  const nextEnd = event.target.value;
+                  const nextRange = clampReplayRange(report.series.length, range.start, report.series.findIndex((point) => point.d === nextEnd));
+                  setRange({ ...nextRange, startDate: report.series[nextRange.start]?.d, endDate: report.series[nextRange.end]?.d });
+                }} className="mt-1 h-9 w-full rounded-md bg-bg px-2 text-sm text-fg shadow-[var(--shadow-border)]">{report.series.map((point) => <option key={point.d} value={point.d}>{point.d}</option>)}</select></label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="quiet" size="sm" onClick={() => setIsRangeModalOpen(false)}>Cancel</Button>
+              <Button size="sm" onClick={() => updateRange(report.series[range.start]?.d ?? report.series[0]?.d, report.series[range.end]?.d ?? report.series.at(-1)?.d)}>Apply range</Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <Metric label="WO difference" value={point ? formatSigned(point.w) : "—"} />
       <Metric label="Net specs" value={point ? formatSigned(point.n) : "—"} />
       <Metric label="Commercials" value={point ? formatSigned(point.c) : "—"} />
       <Metric label="Open interest" value={point ? point.o.toLocaleString() : "—"} />
+      <div className="col-span-full mt-2 grid gap-2 sm:grid-cols-[1.3fr_0.7fr]">
+        <div className="rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]">
+          <div className="flex items-center justify-between gap-2"><p className="text-[10px] uppercase tracking-wide text-subtle">Replay chart</p><span className="font-mono text-[11px] text-accent">{range.startDate ?? report.series[0]?.d} → {range.endDate ?? report.series.at(-1)?.d}</span></div>
+          <svg viewBox="0 0 100 100" className="mt-3 h-32 w-full" aria-label={`${report.symbol} replay chart`}>
+            <defs>
+              <linearGradient id={`replay-${report.code}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.1" />
+              </linearGradient>
+            </defs>
+            <polyline points={chartPoints} fill="none" stroke="var(--color-accent)" strokeWidth="2" />
+            <polyline points={visibleSeries.length > 1 ? visibleSeries.map((seriesPoint, seriesIndex) => {
+                const x = replaySeries.length === 1 ? 10 : (seriesIndex / Math.max(1, replaySeries.length - 1)) * 100;
+                const min = Math.min(...replaySeries.map((item) => item.w));
+                const max = Math.max(...replaySeries.map((item) => item.w));
+                const y = max === min ? 50 : 100 - ((seriesPoint.w - min) / (max - min || 1)) * 90;
+                return `${x},${y}`;
+              }).join(" ") : ""} fill="none" stroke="var(--color-bid)" strokeWidth="2" opacity="0.9" />
+            {activePoint ? (() => {
+              const min = Math.min(...replaySeries.map((item) => item.w));
+              const max = Math.max(...replaySeries.map((item) => item.w));
+              const x = replaySeries.length === 1 ? 50 : ((Math.max(0, visibleSeries.length - 1)) / Math.max(1, replaySeries.length - 1)) * 100;
+              const y = max === min ? 50 : 100 - ((activePoint.w - min) / (max - min || 1)) * 90;
+              return <circle cx={x} cy={y} r="4" fill="var(--color-accent)" />;
+            })() : null}
+          </svg>
+          <div className="mt-2 flex items-center justify-between text-[11px] text-subtle"><span>{replaySeries[0]?.d}</span><span>{activePoint?.d}</span><span>{replaySeries.at(-1)?.d}</span></div>
+        </div>
+        <div className="rounded-lg bg-bg p-3 text-xs leading-relaxed text-muted shadow-[var(--shadow-border)]">Replay is based on the historical COT print, before later weeks were known. Use it to inspect how positioning evolved, not as a price backtest.</div>
+      </div>
       <div className="col-span-full mt-2 grid gap-2 sm:grid-cols-2">
         <div className="rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]"><p className="text-[10px] uppercase tracking-wide text-subtle">Latest price context</p><p className="mt-2 font-mono text-sm text-fg">{price ? price.close.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "Unavailable"}</p><p className="mt-1 text-xs text-muted">{price ? `Yahoo Finance daily close · ${price.date}` : "Price source did not return a quote."}</p></div>
-        <div className="rounded-lg bg-bg p-3 text-xs leading-relaxed text-muted shadow-[var(--shadow-border)]">Replay is based on the historical COT print, before later weeks were known. Use it to inspect how positioning evolved, not as a price backtest.</div>
       </div>
     </div>
   </div>;

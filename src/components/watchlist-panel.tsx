@@ -7,6 +7,7 @@ import {
   getWatchAlerts,
   requestNotificationPermission,
 } from "@/lib/cot/watchlist";
+import { getPushPublicKey, savePushSubscription } from "@/lib/cot/push.functions";
 import type { InstrumentReport } from "@/lib/cot/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ export function WatchlistPanel({
   onNotificationPermissionChange: (permission: NotificationPermission | "unsupported") => void;
 }) {
   const [hydrated, setHydrated] = useState(false);
+  const [pushStatus, setPushStatus] = useState<"idle" | "ready" | "unavailable">("idle");
   const watched = useMemo(
     () => reports.filter((report) => codes.includes(report.code)),
     [codes, reports],
@@ -74,7 +76,23 @@ export function WatchlistPanel({
   async function enableNotifications() {
     const permission = await requestNotificationPermission();
     onNotificationPermissionChange(permission);
-    if (permission === "granted") onSettingsChange({ ...settings, notificationsEnabled: true });
+    if (permission !== "granted") return;
+    onSettingsChange({ ...settings, notificationsEnabled: true });
+    try {
+      const { key } = await getPushPublicKey({});
+      const registration = await navigator.serviceWorker?.ready;
+      if (!key || !registration) throw new Error("Push is not configured");
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToBytes(key),
+      });
+      const json = subscription.toJSON();
+      if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error("Subscription unavailable");
+      await savePushSubscription({ data: { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } } });
+      setPushStatus("ready");
+    } catch {
+      setPushStatus("unavailable");
+    }
   }
 
   function updateSettings(patch: Partial<WatchlistSettings>) {
@@ -180,7 +198,9 @@ export function WatchlistPanel({
                   <p className="text-sm text-fg">Browser notifications</p>
                   <p className="mt-1 text-xs leading-relaxed text-muted">
                     {notificationPermission === "granted"
-                      ? "Enabled on this browser, phone, or desktop when a fresh snapshot loads."
+                      ? pushStatus === "ready"
+                        ? "Enabled for browser and closed-app push delivery."
+                        : "Enabled on this browser, phone, or desktop when a fresh snapshot loads."
                       : notificationPermission === "denied"
                         ? "Blocked by the browser. Re-enable Oak & Ledger in site settings."
                         : notificationPermission === "unsupported"
@@ -189,7 +209,7 @@ export function WatchlistPanel({
                   </p>
                 </div>
                 {notificationPermission === "granted" ? (
-                  <span className="shrink-0 text-xs text-bid">Enabled</span>
+                  <span className={cn("shrink-0 text-xs", pushStatus === "ready" ? "text-bid" : "text-accent")}>{pushStatus === "ready" ? "Push ready" : "Browser ready"}</span>
                 ) : notificationPermission === "unsupported" || notificationPermission === "denied" ? null : (
                   <Button variant="quiet" size="sm" onClick={enableNotifications}>
                     Enable
@@ -238,4 +258,10 @@ export function WatchlistPanel({
 
 function numberOrDefault(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function urlBase64ToBytes(value: string) {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  const raw = atob(`${value.replaceAll("-", "+").replaceAll("_", "/")}${padding}`);
+  return Uint8Array.from(raw, (character) => character.charCodeAt(0));
 }

@@ -6,6 +6,7 @@ import { DetailPanel } from "@/components/detail-panel";
 import { HowToRead } from "@/components/how-to-read";
 import { InstrumentCard } from "@/components/instrument-card";
 import { PressureStrip } from "@/components/pressure-strip";
+import { ResearchDesk } from "@/components/research-desk";
 import { SignalTicker } from "@/components/signal-ticker";
 import { WeeklyBriefing } from "@/components/weekly-briefing";
 import { WatchlistPanel } from "@/components/watchlist-panel";
@@ -172,6 +173,9 @@ function Home() {
           </div>
           <div className="mt-10">
             <WeeklyBriefing reports={board.instruments} onSelect={setCode} />
+          </div>
+          <div className="mt-8">
+            <ResearchDesk reports={board.instruments} onSelect={setCode} />
           </div>
           {watchedReports.length ? (
             <section className="mt-8 border-b border-border pb-6" aria-labelledby="watchlist-summary-title">

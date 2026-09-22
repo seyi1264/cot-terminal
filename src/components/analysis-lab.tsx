@@ -43,10 +43,11 @@ export function AnalysisLab({ reports }: { reports: InstrumentReport[] }) {
     } catch { setEntry(EMPTY_ENTRY); }
   }, [code]);
 
-  if (!report) return null;
   const chart = useMemo(() => prices.slice(-26), [prices]);
   const min = useMemo(() => (chart.length ? Math.min(...chart.map((item) => item.close)) : 0), [chart]);
   const max = useMemo(() => (chart.length ? Math.max(...chart.map((item) => item.close)) : 0), [chart]);
+
+  if (!report) return null;
 
   function saveEntry(patch: Partial<JournalEntry>) {
     const next = { ...entry, ...patch };

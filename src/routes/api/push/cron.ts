@@ -11,6 +11,9 @@ export const Route = createFileRoute("/api/push/cron")({
         if (!expected || provided !== expected) return new Response("Unauthorized", { status: 401 });
 
         const board = await loadBoard(true);
+        if (board.source !== "live") {
+          return Response.json({ ok: true, skipped: true, reason: "live-cftc-data-not-available", asOf: board.asOf });
+        }
         const { getSql } = await import("@/lib/db");
         const sql = await getSql();
         const inserted = await sql.query<{ as_of: string }>(

@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { Download, Gauge, History, NotebookPen, TrendingUp, X } from "lucide-react";
+import { Download, Gauge, GitCompare, History, NotebookPen, TrendingUp, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getMarketPrice } from "@/lib/cot/price.functions";
 import { getMacroCalendar, type MacroEvent } from "@/lib/cot/macro.functions";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { clampReplayRange, resolveReplayRange } from "@/lib/cot/replay-window";
 
-type DeskTab = "confluence" | "replay" | "notes" | "calendar";
+type DeskTab = "confluence" | "comparison" | "replay" | "notes" | "calendar";
 
 const PRICE_SYMBOLS: Record<string, string> = {
   EURUSD: "EURUSD=X",
@@ -87,6 +87,7 @@ export function ResearchDesk({
       <div className="mt-5 flex gap-1 overflow-x-auto border-b border-border pb-2">
         {([
           ["confluence", "Confluence", Gauge],
+          ["comparison", "Compare", GitCompare],
           ["replay", "Replay", History],
           ["notes", "Thesis notes", NotebookPen],
           ["calendar", "Macro calendar", TrendingUp],
@@ -98,6 +99,7 @@ export function ResearchDesk({
       </div>
 
       {tab === "confluence" ? <Confluence reports={reports} onSelect={onSelect} /> : null}
+      {tab === "comparison" ? <Comparison reports={reports} onSelect={onSelect} /> : null}
       {tab === "replay" && replayReport ? (
         <Replay report={replayReport} reports={reports} index={replayIndex} onCodeChange={setReplayCode} onIndexChange={setReplayIndex} onSelect={onSelect} />
       ) : null}
@@ -429,4 +431,43 @@ function readNotes(): Record<string, string> {
   } catch {
     return {};
   }
+}
+
+function Comparison({ reports, onSelect }: { reports: InstrumentReport[]; onSelect: (code: string) => void }) {
+  const [leftCode, setLeftCode] = useState(reports[0]?.code ?? "");
+  const [rightCode, setRightCode] = useState(reports[1]?.code ?? reports[0]?.code ?? "");
+  const left = reports.find((report) => report.code === leftCode) ?? reports[0];
+  const right = reports.find((report) => report.code === rightCode) ?? reports[1] ?? reports[0];
+  if (!left || !right) return null;
+  const aligned = Math.sign(left.woDiff) === Math.sign(right.woDiff) && left.woDiff !== 0;
+  const relationship = aligned ? "Aligned institutional direction" : "Diverging institutional direction";
+  const context = aligned
+    ? `${left.symbol} and ${right.symbol} are carrying the same White Oak direction. Treat the relationship as a macro confirmation, then wait for each market's own zone and trigger.`
+    : `${left.symbol} and ${right.symbol} are carrying opposite White Oak directions. The divergence is a risk filter: avoid treating either signal as a standalone macro trade.`;
+
+  return (
+    <div className="mt-5 space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <MarketSelect label="Market A" value={left.code} reports={reports} onChange={setLeftCode} />
+        <MarketSelect label="Market B" value={right.code} reports={reports} onChange={setRightCode} />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {[left, right].map((report) => (
+          <button key={report.code} type="button" onClick={() => onSelect(report.code)} className="rounded-lg bg-bg-elevated p-4 text-left shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]">
+            <div className="flex items-center justify-between gap-3"><span className="font-display text-xl text-fg">{report.symbol}</span><span className={report.woDiff >= 0 ? "text-bid" : "text-offer"}>{report.woDiff >= 0 ? "BID" : "OFFER"}</span></div>
+            <p className="mt-2 font-mono text-sm tabular text-fg">{formatSigned(report.woDiff, 0)} <span className="text-muted">· {report.thesisStatus}</span></p>
+            <p className="mt-2 text-xs text-muted">{report.name}</p>
+          </button>
+        ))}
+      </div>
+      <div className={cn("rounded-lg border p-4", aligned ? "border-bid/40 bg-bid/10" : "border-offer/40 bg-offer/10")}>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg">{relationship}</p>
+        <p className="mt-2 text-sm leading-relaxed text-fg">{context}</p>
+      </div>
+    </div>
+  );
+}
+
+function MarketSelect({ label, value, reports, onChange }: { label: string; value: string; reports: InstrumentReport[]; onChange: (value: string) => void }) {
+  return <label className="text-xs text-muted">{label}<select value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-9 w-full rounded-md bg-bg-elevated px-2 text-sm text-fg shadow-[var(--shadow-border)]">{reports.map((report) => <option key={report.code} value={report.code}>{report.symbol} · {report.name}</option>)}</select></label>;
 }

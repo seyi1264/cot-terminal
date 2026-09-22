@@ -1,5 +1,5 @@
-import { INSTRUMENTS, USD_BASE_PAIRS } from "./instruments";
-import { formatContracts, formatSigned, stanceLabel } from "./format";
+import { INSTRUMENTS, USD_BASE_PAIRS } from "./instruments.ts";
+import { formatContracts, formatSigned, stanceLabel } from "./format.ts";
 import type {
   CotRawRow,
   FlowKind,
@@ -9,9 +9,11 @@ import type {
   InstrumentReport,
   SeriesPoint,
   Stance,
+  ThesisStatus,
+  TriggerLogic,
   TraderGroup,
   WeeklyPrint,
-} from "./types";
+} from "./types.ts";
 
 const AVG_WINDOW = 13;
 const FLOW_EPS = 80;
@@ -44,6 +46,140 @@ function cotIndex(current: number, window: number[]): number {
   }
   if (max === min) return 50;
   return ((current - min) / (max - min)) * 100;
+}
+
+export type OIContextInput = {
+  oiChange: number;
+  priceChange: number;
+  commercialNet: number;
+  woDiff: number;
+};
+
+export type OIContextRead = {
+  label: string;
+  tone: "strong-bid" | "bid" | "cautious" | "offer" | "strong-offer" | "neutral";
+  confidence: number;
+};
+
+export function interpretOpenInterestContext({
+  oiChange,
+  priceChange,
+  commercialNet,
+  woDiff,
+}: OIContextInput): OIContextRead {
+  const priceUp = priceChange > 0;
+  const priceDown = priceChange < 0;
+
+  if (oiChange > 0 && priceUp) {
+    const strong = commercialNet < 0 && woDiff > 0;
+    return {
+      label: strong
+        ? "Rising OI + rising bias = genuine trend participation: new money is confirming the move, not just short covering."
+        : "Rising OI + rising bias = genuine trend participation: new money is entering with the move.",
+      tone: strong ? "strong-bid" : "bid",
+      confidence: 82,
+    };
+  }
+
+  if (oiChange < 0 && priceUp) {
+    return {
+      label: "Falling OI + rising bias = short covering only: the move is weaker and a fade is more likely than a fresh breakout.",
+      tone: "cautious",
+      confidence: 68,
+    };
+  }
+
+  if (oiChange > 0 && priceDown) {
+    return {
+      label: "Rising OI + falling bias = fresh shorts are entering; follow the downtrend unless the book resets.",
+      tone: "strong-offer",
+      confidence: 82,
+    };
+  }
+
+  if (oiChange < 0 && priceDown) {
+    return {
+      label: "Falling OI + falling bias = long liquidation: the downtrend is tiring and may be nearing exhaustion.",
+      tone: "offer",
+      confidence: 62,
+    };
+  }
+
+  return {
+    label: "Open interest is not yet decisive; treat the move as a setup until price and participation line up.",
+    tone: "neutral",
+    confidence: 45,
+  };
+}
+
+export type RetailDivergenceInput = {
+  retailNet: number;
+  woDiff: number;
+  retailExtreme: number;
+  stance: Stance;
+};
+
+export type RetailDivergenceRead = {
+  label: string;
+  tone: "warning" | "caution" | "neutral";
+  confidence: number;
+};
+
+export function summarizeRetailDivergence({
+  retailNet,
+  woDiff,
+  retailExtreme,
+  stance,
+}: RetailDivergenceInput): RetailDivergenceRead {
+  const aggressiveLong = retailNet > 0 && retailExtreme >= 75;
+  const aggressiveShort = retailNet < 0 && retailExtreme >= 75;
+  const crowding = Math.abs(retailNet) > 0 && retailExtreme >= 75;
+
+  if (aggressiveLong) {
+    return {
+      label: "Crowded retail long: the tape is being bought into by the crowd while the institutional book is being sold. Contrarian fade risk is rising.",
+      tone: "warning",
+      confidence: 78,
+    };
+  }
+
+  if (aggressiveShort) {
+    return {
+      label: "Crowded retail short: the crowd is leaning into the offer while institutions may be accumulating against it. Contrarian upside risk is rising.",
+      tone: "warning",
+      confidence: 78,
+    };
+  }
+
+  if (crowding && Math.sign(retailNet) !== Math.sign(woDiff || 1)) {
+    return {
+      label: "Retail is diverging from the institutional reading; treat the move as a potential exhaustion or trap until the book confirms.",
+      tone: "caution",
+      confidence: 60,
+    };
+  }
+
+  if (stance === "bid" && retailNet < 0) {
+    return {
+      label: "Retail is leaning against the bid; this is a potential absorption or distribution signal at the edges.",
+      tone: "caution",
+      confidence: 52,
+    };
+  }
+
+  if (stance === "offer" && retailNet > 0) {
+    return {
+      label: "Retail is leaning against the offer; this is a potential absorption or accumulation signal at the edges.",
+      tone: "caution",
+      confidence: 52,
+    };
+  }
+
+  return {
+    label: "Retail is not crowded enough to be a decisive contrarian trigger; keep the position in context, not in isolation.",
+    tone: "neutral",
+    confidence: 40,
+  };
 }
 
 function classifyFlow(
@@ -371,6 +507,241 @@ function narrative(
   return { headline, body: parts.join(" ") };
 }
 
+function buildStoryline(
+  woDiff: number,
+  woDiffChange: number,
+  nc: GroupSnapshot,
+  comm: GroupSnapshot,
+  retail: GroupSnapshot,
+  stance: Stance,
+): {
+  whoInControl: "buyers" | "sellers" | "mixed";
+  controlShift: "recent breakout" | "stable" | "transitioning";
+  cycle: "early accumulation" | "mid-expansion" | "distribution" | "exhaustion" | "mixed";
+  confirmation: "confirms" | "contradicts" | "mixed";
+  summary: string;
+} {
+  const whoInControl =
+    woDiff > 0 ? "buyers" : woDiff < 0 ? "sellers" : "mixed";
+  const controlShift =
+    Math.abs(woDiffChange) > 20_000 ? "recent breakout" :
+    Math.abs(woDiffChange) > 5_000 ? "transitioning" :
+    "stable";
+
+  const cycle =
+    comm.net < 0 && nc.net > 0 && retail.net > 0 && woDiff > 0 ? "distribution" :
+    comm.net > 0 && nc.net > 0 && woDiff > 0 ? "early accumulation" :
+    nc.net > 0 && comm.net < 0 ? "mid-expansion" :
+    comm.net > 0 && nc.net < 0 ? "exhaustion" :
+    "mixed";
+
+  const confirmation =
+    stance === "strong-bid" || stance === "bid"
+      ? (woDiff > 0 ? "confirms" : "contradicts")
+      : stance === "strong-offer" || stance === "offer"
+        ? (woDiff < 0 ? "confirms" : "contradicts")
+        : "mixed";
+
+  const summary =
+    whoInControl === "buyers"
+      ? "The chart story is being led by buyers: price is being carried by institutional demand while the commercial book remains structurally short or neutral."
+      : whoInControl === "sellers"
+        ? "The market is being led by sellers: price is being capped by institutional supply while the commercial book is still leaning into hedged downside."
+        : "The market is still in a mixed-control phase; the chart is not yet giving a clean institutional leader.";
+
+  return { whoInControl, controlShift, cycle, confirmation, summary };
+}
+
+function buildZoneRead(woDiff: number, woIndex: number, stance: Stance): {
+  label: string;
+  quality: "Fresh" | "Once-tested" | "Twice-tested" | "Stale";
+  proximity: string;
+  alignment: "Aligned" | "Diverging" | "Neutral";
+  reminder: string;
+} {
+  const label = woDiff >= 0 ? "Weekly demand zone — institutional bid area" : "Weekly supply zone — institutional offer area";
+  const quality = woIndex >= 80 ? "Fresh" : woIndex >= 60 ? "Once-tested" : woIndex >= 40 ? "Twice-tested" : "Stale";
+  const proximity =
+    Math.abs(woDiff) > 60_000 ? "Price is very close to the active institutional zone." :
+    Math.abs(woDiff) > 25_000 ? "Price remains in the zone approach phase." :
+    "Price is still outside the immediate zone band.";
+  const alignment =
+    (stance === "bid" || stance === "strong-bid") && woDiff >= 0 ? "Aligned" :
+    (stance === "offer" || stance === "strong-offer") && woDiff < 0 ? "Aligned" :
+    (stance === "balanced" ? "Neutral" : "Diverging");
+
+  return {
+    label,
+    quality,
+    proximity,
+    alignment,
+    reminder: "Treat the zone as valid only while price remains on the correct side of it; once daily closes remove it, the thesis needs a fresh zone before acting.",
+  };
+}
+
+function buildTriggerLogic(
+  woIndex: number,
+  comm: GroupSnapshot,
+  noncomm: GroupSnapshot,
+  stance: Stance,
+): TriggerLogic {
+  const strongBidMatched = woIndex > 75 && comm.net < 0 && noncomm.net > 0;
+  if (stance === "strong-bid") {
+    return {
+      label: "STRONG BID",
+      rule: "WO index > 75 AND commercial net is negative (hedging a rise) AND non-commercial net is positive (speculative long).",
+      matched: strongBidMatched,
+    };
+  }
+  if (stance === "strong-offer") {
+    return {
+      label: "STRONG OFFER",
+      rule: "WO index < 25 AND commercial net is positive (hedging a decline) AND non-commercial net is negative (speculative short).",
+      matched: woIndex < 25 && comm.net > 0 && noncomm.net < 0,
+    };
+  }
+  return {
+    label: stance === "balanced" ? "WAIT" : stance === "bid" ? "BID" : "OFFER",
+    rule: "Directional stance requires the White Oak difference, participant extremes, and price confirmation to agree before entry.",
+    matched: stance !== "balanced",
+  };
+}
+
+function buildThesisStatus(
+  stance: Stance,
+  zone: { quality: "Fresh" | "Once-tested" | "Twice-tested" | "Stale"; proximity: string },
+  confluenceScore: number,
+  oiChange: number,
+): ThesisStatus {
+  if (zone.quality === "Stale" || stance === "balanced") return "EXPIRED";
+  if (zone.proximity.includes("very close")) return "ACTIVE";
+  const directionalOi = (stance === "bid" || stance === "strong-bid") ? oiChange > 0 : oiChange < 0;
+  if (confluenceScore >= 5 && directionalOi) return "CONFIRMED";
+  return "FORMING";
+}
+
+function buildTrendlineRead(woDiff: number, woIndex: number, stance: Stance): {
+  status: "Bullish trendline intact" | "Broken" | "Neutral";
+  direction: "Bullish" | "Bearish" | "Neutral";
+  alignment: "Aligned" | "Diverging" | "Neutral";
+  summary: string;
+} {
+  const direction = woDiff >= 0 ? "Bullish" : "Bearish";
+  const status = woIndex >= 75 ? "Bullish trendline intact" : woIndex <= 25 ? "Broken" : "Neutral";
+  const alignment =
+    (stance === "bid" || stance === "strong-bid") && direction === "Bullish" ? "Aligned" :
+    (stance === "offer" || stance === "strong-offer") && direction === "Bearish" ? "Aligned" :
+    (stance === "balanced" ? "Neutral" : "Diverging");
+
+  return {
+    status,
+    direction,
+    alignment,
+    summary: "Institutional trend context should confirm the bias, not replace it; a broken trendline plus a stretched COT reading is the highest-risk reversal signature.",
+  };
+}
+
+function buildSherlockSteps(
+  woDiff: number,
+  woIndex: number,
+  stance: Stance,
+): Array<{ label: string; state: "check" | "watch" | "cross"; detail: string }> {
+  const monthly: { label: string; state: "check" | "watch" | "cross"; detail: string } =
+    woIndex >= 70
+      ? { label: "Monthly (Macro Bias)", state: "check", detail: "Longer-term structure is bullish and still giving the institutional bid the weight of evidence." }
+      : woIndex <= 30
+        ? { label: "Monthly (Macro Bias)", state: "cross", detail: "Longer-term structure is bearish and the macro bias is under pressure." }
+        : { label: "Monthly (Macro Bias)", state: "watch", detail: "Macro structure is still mixed; keep the horizon flexible until the book confirms." };
+
+  const weekly: { label: string; state: "check" | "watch" | "cross"; detail: string } =
+    woDiff >= 0
+      ? { label: "Weekly (COT Positioning)", state: "check", detail: `Current WO difference is ${formatSigned(woDiff)} and supports the bid bias.` }
+      : { label: "Weekly (COT Positioning)", state: "cross", detail: `Current WO difference is ${formatSigned(woDiff)} and supports the offer bias.` };
+
+  const daily: { label: string; state: "check" | "watch" | "cross"; detail: string } =
+    stance === "bid" || stance === "strong-bid"
+      ? { label: "Daily (Zone Identification)", state: "check", detail: "The active daily zone should be a demand or support band that confirms the bid thesis." }
+      : { label: "Daily (Zone Identification)", state: "watch", detail: "The zone should be treated as the trigger area, not the thesis itself." };
+
+  const hourly: { label: string; state: "check" | "watch" | "cross"; detail: string } =
+    stance === "bid" || stance === "strong-bid"
+      ? { label: "4H / 1H (Entry Preparation)", state: "watch", detail: "Wait for trend alignment and a clear trigger inside the zone before acting." }
+      : { label: "4H / 1H (Entry Preparation)", state: "watch", detail: "Wait for the rejection trigger and confirmation that the short thesis is activating." };
+
+  return [monthly, weekly, daily, hourly];
+}
+
+function buildPressureStatus(woDiff: number, stance: Stance): {
+  state: "BULLISH PRESSURE" | "BEARISH PRESSURE" | "NEUTRAL" | "TRANSITIONING";
+  crossReference: "Aligned" | "Diverging" | "Contradicting" | "Neutral";
+  alert: string;
+} {
+  const state =
+    woDiff > 0 ? "BULLISH PRESSURE" :
+    woDiff < 0 ? "BEARISH PRESSURE" :
+    "NEUTRAL";
+
+  const crossReference: "Aligned" | "Diverging" | "Contradicting" | "Neutral" =
+    (stance === "bid" || stance === "strong-bid") && woDiff > 0 ? "Aligned" :
+    (stance === "offer" || stance === "strong-offer") && woDiff < 0 ? "Aligned" :
+    (stance === "balanced" ? "Neutral" : "Diverging");
+
+  return {
+    state,
+    crossReference,
+    alert: crossReference === "Aligned"
+      ? "Pressure is supporting the current positioning thesis; keep the trade plan anchored to the active zone."
+      : crossReference === "Diverging"
+        ? "Pressure is starting to contradict the thesis; wait for the next confirmation event before stepping in."
+        : "Pressure is mixed and the setup is not ready to act upon yet.",
+  };
+}
+
+function buildConfluenceScore(
+  report: { woDiff: number; woIndex: number; stance: Stance; comm: GroupSnapshot; retail: GroupSnapshot; oiChange: number; },
+): { score: number; total: number; label: "HIGH CONFLUENCE" | "MID CONFLUENCE" | "LOW CONFLUENCE"; summary: string; checks: Array<{ label: string; active: boolean }> } {
+  const checks = [
+    { label: "COT thesis", active: report.woDiff !== 0 },
+    { label: "Zone alignment", active: report.woIndex >= 50 },
+    { label: "Retail contrarian", active: report.retail.net !== 0 && report.retail.index >= 70 },
+    { label: "Trendline aligned", active: report.woIndex >= 60 || report.woIndex <= 40 },
+    { label: "OI confirmation", active: report.oiChange !== 0 },
+    { label: "Macro correlation", active: report.stance !== "balanced" },
+  ];
+  const score = checks.filter((check) => check.active).length;
+  const label = score >= 5 ? "HIGH CONFLUENCE" : score >= 3 ? "MID CONFLUENCE" : "LOW CONFLUENCE";
+  const summary =
+    score >= 5
+      ? "The setup is stacking enough confirmations to plan a trade with a clear thesis and an explicit invalidation." 
+      : score >= 3
+        ? "The market has some institutional evidence, but the trade is still waiting for one more confirmation layer."
+        : "Confluence is thin; treat this as a watchlist setup and avoid forcing a trade before price and positioning align.";
+
+  return { score, total: checks.length, label, summary, checks };
+}
+
+function buildHistoricalSetup(woIndex: number, stance: Stance): { label: string; conviction: string; summary: string; } {
+  if (woIndex >= 80) {
+    return {
+      label: "Historical extreme / crowded institutional read",
+      conviction: "High conviction on the current side of the book",
+      summary: "The current reading sits in the upper end of the all-history range, which historically tends to be a high-stakes distribution or exhaustion zone unless price retains structural support.",
+    };
+  }
+  if (woIndex <= 20) {
+    return {
+      label: "Historical extreme / discounted institutional read",
+      conviction: "High conviction on the opposite side of the current short thesis",
+      summary: "The setup is deeply discounted versus history; the market often needs a fresh structural break or a clean zone reclaim before this becomes a directional trigger.",
+    };
+  }
+  return {
+    label: "Historical middle-band positioning",
+    conviction: "Contextual conviction only",
+    summary: `The current reading sits around the middle of the all-history range. This is acceptable context, but not yet a decisive move into a high-probability setup.`,
+  };
+}
+
 export function analyzeInstrument(
   def: (typeof INSTRUMENTS)[number],
   rows: CotRawRow[],
@@ -410,6 +781,28 @@ export function analyzeInstrument(
     series,
   );
   const { headline, body } = narrative(def, nc, comm, retail, woDiff, woIndex, stance, flags);
+  const storyline = buildStoryline(woDiff, woDiffChange, nc, comm, retail, stance);
+  const zone = buildZoneRead(woDiff, woIndex, stance);
+  const trendline = buildTrendlineRead(woDiff, woIndex, stance);
+  const sherlock = buildSherlockSteps(woDiff, woIndex, stance);
+  const pressure = buildPressureStatus(woDiff, stance);
+  const confluence = buildConfluenceScore({
+    woDiff,
+    woIndex,
+    stance,
+    comm,
+    retail,
+    oiChange: latest.oiChange,
+  });
+  const historical = buildHistoricalSetup(woIndex, stance);
+  const triggerLogic = buildTriggerLogic(woIndex, comm, nc, stance);
+  const thesisStatus = buildThesisStatus(stance, zone, confluence.score, latest.oiChange);
+  const weeklyBias =
+    stance === "strong-bid" || stance === "bid"
+      ? `${def.symbol} — BULLISH BIAS THIS WEEK\nInstitutional thesis: the current book is still leaning bid and the active zone is the structural focus. Look to buy dips into the demand zone and keep invalidation on the opposite side of the weekly structure.`
+      : stance === "strong-offer" || stance === "offer"
+        ? `${def.symbol} — BEARISH BIAS THIS WEEK\nInstitutional thesis: the current book is still leaning offer and the active zone is the structural supply band. Look to sell rallies into the supply zone and keep invalidation above the weekly structure.`
+        : `${def.symbol} — RANGE / WAIT-AND-SEE BIAS THIS WEEK\nInstitutional thesis: the current read is neutral and the positional signal is not yet strong enough to force a trade. Wait for a fresh supply/demand break or perfect COT confirmation.`;
 
   return {
     code: def.code,
@@ -429,11 +822,21 @@ export function analyzeInstrument(
     woIndex,
     woAvg13,
     stance,
+    thesisStatus,
+    triggerLogic,
     score,
     headline,
     body,
     flags,
     series,
+    storyline,
+    zone,
+    trendline,
+    sherlock,
+    pressure,
+    weeklyBias,
+    confluence,
+    historical,
   };
 }
 

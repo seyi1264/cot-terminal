@@ -67,6 +67,7 @@ function Home() {
   const active = board.instruments.find((row) => row.code === search.code) ?? null;
   const watchedReports = board.instruments.filter((row) => watchlistCodes.includes(row.code));
   const watchAlerts = getWatchAlerts(board.instruments, watchlistCodes, watchlistSettings);
+  const balancedCount = board.instruments.filter((row) => row.stance === "balanced").length;
 
   useEffect(() => {
     try {
@@ -136,9 +137,8 @@ function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <p className="hidden font-mono text-xs text-muted sm:block">
-              As of {board.asOf ? formatDate(board.asOf) : "—"}
-              {board.source === "fallback" ? " · snapshot" : ""}
+            <p className="hidden rounded-full border border-accent/35 bg-accent/10 px-3 py-1 font-mono text-[11px] text-accent sm:block">
+              Data as of {board.asOf ? formatDate(board.asOf) : "—"} · published Friday
             </p>
             <Button variant="quiet" size="md" onClick={() => setGuideOpen(true)}>
               How to read
@@ -159,15 +159,23 @@ function Home() {
       <main className="mx-auto max-w-6xl px-4">
         <section className="py-10 sm:py-14">
           <h1 className="max-w-xl font-display text-4xl font-medium tracking-tight text-fg sm:text-5xl">
-            What the banks are positioned to do.
+            Follow the storyline before the signal.
           </h1>
           <p className="mt-4 max-w-xl text-base leading-relaxed text-muted">
-            Commitments of Traders, read the White Oak way — commercial accumulation, retail
-            divergence, and extreme readings, before price gets there.
+            Start with where institutional positioning has been, what changed, and how the instrument
+            responded. Then wait for price to confirm the thesis before acting.
           </p>
-          <p className="mt-2 font-mono text-xs text-subtle sm:hidden">
-            As of {board.asOf ? formatDate(board.asOf) : "—"}
-            {board.source === "fallback" ? " · snapshot" : ""}
+          <div className="mt-5 max-w-2xl rounded-lg border border-accent/45 bg-[#272118] p-4 shadow-[0_0_0_1px_rgb(200_192_176_/_0.08)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">White Oak principle</p>
+            <p className="mt-2 text-sm leading-relaxed text-fg">
+              Follow the institutions. Follow the data. Follow the storyline. Then wait for the signal.
+            </p>
+            {balancedCount > 0 ? (
+              <p className="mt-2 text-xs text-muted">{balancedCount} tracked {balancedCount === 1 ? "instrument is" : "instruments are"} currently neutral. Sometimes the smartest move is to wait.</p>
+            ) : null}
+          </div>
+          <p className="mt-2 inline-flex rounded-full border border-accent/35 bg-accent/10 px-3 py-1 font-mono text-[11px] text-accent sm:hidden">
+            Data as of {board.asOf ? formatDate(board.asOf) : "—"} · published Friday
           </p>
           <div className="mt-8">
             <PressureStrip instruments={board.instruments} onSelect={setCode} />

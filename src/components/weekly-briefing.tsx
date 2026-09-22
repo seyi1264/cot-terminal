@@ -37,9 +37,11 @@ export function WeeklyBriefing({ reports, onSelect }: { reports: InstrumentRepor
               <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-subtle">{item.label}</p>
               <p className="mt-1 text-sm font-medium text-fg">{item.report.headline}</p>
               <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted">{item.detail}</p>
-              <p className={cn("mt-3 font-mono text-xs tabular", item.report.woDiff >= 0 ? "text-bid" : "text-offer")}>
-                WO {formatSigned(item.report.woDiff)}
-              </p>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <p className={cn("font-mono text-xs tabular", item.report.woDiff >= 0 ? "text-bid" : "text-offer")}>WO {formatSigned(item.report.woDiff)}</p>
+                <span className="text-[9px] font-semibold tracking-[0.1em] text-subtle">{item.report.thesisStatus}</span>
+              </div>
+              {item.report.confluence ? <p className="mt-1 text-[10px] uppercase tracking-[0.1em] text-muted">Confluence {item.report.confluence.score}/{item.report.confluence.total}</p> : null}
             </button>
           );
         })}

@@ -2,6 +2,14 @@ export type CotCategory = "fx" | "metals" | "energy" | "equity" | "rates" | "cry
 
 export type Stance = "strong-bid" | "bid" | "balanced" | "offer" | "strong-offer";
 
+export type ThesisStatus = "FORMING" | "ACTIVE" | "CONFIRMED" | "EXPIRED";
+
+export type TriggerLogic = {
+  label: string;
+  rule: string;
+  matched: boolean;
+};
+
 export type FlowKind =
   | "accum-long"
   | "accum-short"
@@ -89,6 +97,55 @@ export type SeriesPoint = {
   o: number;
 };
 
+export type MethodologyStoryline = {
+  whoInControl: "buyers" | "sellers" | "mixed";
+  controlShift: "recent breakout" | "stable" | "transitioning";
+  cycle: "early accumulation" | "mid-expansion" | "distribution" | "exhaustion" | "mixed";
+  confirmation: "confirms" | "contradicts" | "mixed";
+  summary: string;
+};
+
+export type ZoneRead = {
+  label: string;
+  quality: "Fresh" | "Once-tested" | "Twice-tested" | "Stale";
+  proximity: string;
+  alignment: "Aligned" | "Diverging" | "Neutral";
+  reminder: string;
+};
+
+export type TrendlineRead = {
+  status: "Bullish trendline intact" | "Broken" | "Neutral";
+  direction: "Bullish" | "Bearish" | "Neutral";
+  alignment: "Aligned" | "Diverging" | "Neutral";
+  summary: string;
+};
+
+export type SherlockStep = {
+  label: string;
+  state: "check" | "watch" | "cross";
+  detail: string;
+};
+
+export type PressureStatus = {
+  state: "BULLISH PRESSURE" | "BEARISH PRESSURE" | "NEUTRAL" | "TRANSITIONING";
+  crossReference: "Aligned" | "Diverging" | "Contradicting" | "Neutral";
+  alert: string;
+};
+
+export type ConfluenceScore = {
+  score: number;
+  total: number;
+  label: "HIGH CONFLUENCE" | "MID CONFLUENCE" | "LOW CONFLUENCE";
+  summary: string;
+  checks: Array<{ label: string; active: boolean }>;
+};
+
+export type HistoricalSetupRead = {
+  label: string;
+  conviction: string;
+  summary: string;
+};
+
 export type InstrumentReport = {
   code: string;
   symbol: string;
@@ -107,11 +164,21 @@ export type InstrumentReport = {
   woIndex: number;
   woAvg13: number;
   stance: Stance;
+  thesisStatus: ThesisStatus;
+  triggerLogic: TriggerLogic;
   score: number;
   headline: string;
   body: string;
   flags: string[];
   series: SeriesPoint[];
+  storyline?: MethodologyStoryline;
+  zone?: ZoneRead;
+  trendline?: TrendlineRead;
+  sherlock?: SherlockStep[];
+  pressure?: PressureStatus;
+  weeklyBias?: string;
+  confluence?: ConfluenceScore;
+  historical?: HistoricalSetupRead;
 };
 
 export type CotBoard = {

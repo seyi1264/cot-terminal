@@ -1,14 +1,20 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { Info, X } from "lucide-react";
 import { useMemo } from "react";
 import { formatContracts, formatDate, formatSigned } from "@/lib/cot/format";
 import type { InstrumentReport } from "@/lib/cot/types";
+import {
+  interpretOpenInterestContext,
+  summarizeRetailDivergence,
+} from "@/lib/cot/white-oak";
 import { GroupStats } from "@/components/group-stats";
 import { IndexBar } from "@/components/index-bar";
 import { NetChart, WoChart } from "@/components/net-chart";
 import { NewsFeed } from "@/components/news-feed";
 import { StanceChip } from "@/components/stance-chip";
 import { Button } from "@/components/ui/button";
+import { ZoneEditor } from "@/components/zone-editor";
+import { cn } from "@/lib/utils";
 
 export function DetailPanel({
   report,
@@ -55,6 +61,36 @@ function DetailBody({
     ];
   }, [report]);
 
+  const oiContext = useMemo(
+    () =>
+      interpretOpenInterestContext({
+        oiChange: report.oiChange,
+        priceChange: report.woDiffChange,
+        commercialNet: report.comm.net,
+        woDiff: report.woDiff,
+      }),
+    [report.comm.net, report.oiChange, report.woDiff, report.woDiffChange],
+  );
+
+  const retailContext = useMemo(
+    () =>
+      summarizeRetailDivergence({
+        retailNet: report.retail.net,
+        woDiff: report.woDiff,
+        retailExtreme: Math.max(report.retail.index, 100 - report.retail.index),
+        stance: report.stance,
+      }),
+    [report.retail.index, report.retail.net, report.stance, report.woDiff],
+  );
+
+  const methodology = report.storyline;
+  const zone = report.zone;
+  const trendline = report.trendline;
+  const sherlock = report.sherlock ?? [];
+  const pressure = report.pressure;
+  const confluence = report.confluence;
+  const weeklyBias = report.weeklyBias ?? "";
+
   return (
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-bg-elevated/95 px-5 py-4 backdrop-blur-sm">
@@ -78,6 +114,24 @@ function DetailBody({
       </header>
 
       <div className="space-y-8 px-5 py-6">
+        <section className="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-start">
+          <span className={cn(
+            "inline-flex h-fit items-center justify-center rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.14em]",
+            report.thesisStatus === "CONFIRMED" && "border-bid/40 bg-bid/10 text-bid",
+            report.thesisStatus === "ACTIVE" && "border-accent/50 bg-accent/10 text-accent",
+            report.thesisStatus === "FORMING" && "border-border bg-bg-subtle text-muted",
+            report.thesisStatus === "EXPIRED" && "border-offer/40 bg-offer/10 text-offer",
+          )}>{report.thesisStatus}</span>
+          <div className="rounded-lg border border-accent/55 bg-[#272118] p-4 shadow-[0_0_0_1px_rgb(200_192_176_/_0.08)]">
+            <div className="flex items-center gap-2 text-accent">
+              <Info className="size-4" />
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em]">Trigger logic: {report.triggerLogic.label}</p>
+            </div>
+            <p className="mt-2 text-sm font-medium leading-relaxed text-fg">{report.triggerLogic.rule}</p>
+            <p className="mt-2 text-xs text-muted">{report.triggerLogic.matched ? "All listed conditions are currently present in the report." : "The directional label is supported by the wider score; this exact trigger is not fully matched yet."}</p>
+          </div>
+        </section>
+
         <section>
           <p className="text-[11px] uppercase tracking-wide text-subtle">White Oak reading</p>
           <h3 className="mt-1 font-display text-xl text-fg">{report.headline}</h3>
@@ -98,7 +152,7 @@ function DetailBody({
           </div>
 
           {report.comm.net < 0 && report.noncomm.net > 0 && report.retail.net > 0 && report.woDiff > 0 ? (
-            <div className="mt-4 rounded-lg border border-accent/30 bg-accent/5 p-3 text-sm leading-relaxed text-fg">
+            <div className="mt-4 rounded-lg border border-accent/55 bg-[#272118] p-4 text-sm leading-relaxed text-fg shadow-[0_0_0_1px_rgb(200_192_176_/_0.08)]">
               <span className="font-medium text-accent">Framework context:</span> this pattern can read as a
               distribution / top-risk setup when commercials are short while specs and retail are long.
               It is a useful context flag, not a certainty trigger by itself.
@@ -128,6 +182,126 @@ function DetailBody({
           <Stat label="Open interest" value={formatContracts(report.oi)} hint={formatSigned(report.oiChange)} />
           <Stat label="13-week WO avg" value={formatSigned(report.woAvg13)} />
         </section>
+
+        <section className="grid gap-3 md:grid-cols-2">
+          <DecisionCard
+            title="Open interest read"
+            tone={oiContext.tone}
+            label={oiContext.label}
+            confidence={oiContext.confidence}
+          />
+          <DecisionCard
+            title="Retail divergence"
+            tone={retailContext.tone}
+            label={retailContext.label}
+            confidence={retailContext.confidence}
+          />
+        </section>
+
+        {methodology ? (
+          <section className="rounded-lg border border-border bg-bg p-4">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Market storyline</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.12em] text-muted">
+              <span className="rounded-full border border-border px-2 py-1">Control: {methodology.whoInControl}</span>
+              <span className="rounded-full border border-border px-2 py-1">Shift: {methodology.controlShift}</span>
+              <span className="rounded-full border border-border px-2 py-1">Cycle: {methodology.cycle}</span>
+              <span className="rounded-full border border-border px-2 py-1">COT check: {methodology.confirmation}</span>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-muted">{methodology.summary}</p>
+          </section>
+        ) : null}
+
+        {zone || trendline || pressure ? (
+          <section className="grid gap-3 md:grid-cols-3">
+            {zone ? (
+              <div className="rounded-lg border border-border bg-bg p-3">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Supply & demand</p>
+                <p className="mt-2 font-medium text-fg">{zone.label}</p>
+                <p className="mt-2 text-xs text-muted">Quality: {zone.quality}</p>
+                <p className="text-xs text-muted">Proximity: {zone.proximity}</p>
+                <p className="mt-2 text-xs text-fg">Alignment: {zone.alignment}</p>
+                <p className="mt-2 text-xs leading-relaxed text-muted">{zone.reminder}</p>
+              </div>
+            ) : null}
+            {trendline ? (
+              <div className="rounded-lg border border-border bg-bg p-3">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Institutional trendline</p>
+                <p className="mt-2 font-medium text-fg">{trendline.status}</p>
+                <p className="mt-2 text-xs text-muted">Direction: {trendline.direction}</p>
+                <p className="text-xs text-fg">Alignment: {trendline.alignment}</p>
+                <p className="mt-2 text-xs leading-relaxed text-muted">{trendline.summary}</p>
+              </div>
+            ) : null}
+            {pressure ? (
+              <div className="rounded-lg border border-border bg-bg p-3">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Pressure</p>
+                <p className="mt-2 font-medium text-fg">{pressure.state}</p>
+                <p className="mt-2 text-xs text-fg">Cross-reference: {pressure.crossReference}</p>
+                <p className="mt-2 text-xs leading-relaxed text-muted">{pressure.alert}</p>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {sherlock.length ? (
+          <section className="rounded-lg border border-border bg-bg p-4">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Sherlock process</p>
+            <div className="mt-3 space-y-2">
+              {sherlock.map((step) => (
+                <div key={step.label} className="flex gap-3 rounded-md border border-border bg-bg-elevated p-2.5">
+                  <span className={step.state === "check" ? "mt-0.5 size-2.5 rounded-full bg-bid" : step.state === "watch" ? "mt-0.5 size-2.5 rounded-full bg-muted" : "mt-0.5 size-2.5 rounded-full bg-offer"} />
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.12em] text-fg">{step.label}</p>
+                    <p className="mt-1 text-sm text-muted">{step.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {weeklyBias ? (
+          <section className="rounded-lg border border-accent/25 bg-accent/5 p-4">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Weekly bias statement</p>
+            <pre className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-fg">{weeklyBias}</pre>
+          </section>
+        ) : null}
+
+        <SynthesisPanel report={report} />
+
+        <ZoneEditor report={report} />
+
+        {confluence ? (
+          <section className="rounded-lg border border-border bg-bg p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Confluence score</p>
+                <p className="mt-1 font-display text-xl text-fg">{confluence.label}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-mono text-2xl text-fg">{confluence.score}/{confluence.total}</p>
+                <p className="text-[10px] uppercase tracking-[0.12em] text-muted">Confirmations stacked</p>
+              </div>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-muted">{confluence.summary}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {confluence.checks.map((item) => (
+                <span key={item.label} className={item.active ? "rounded-full border border-bid/35 bg-bid/10 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-bid" : "rounded-full border border-border px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-muted"}>
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {report.historical ? (
+          <section className="rounded-lg border border-border bg-bg p-4">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Historical setup performance</p>
+            <p className="mt-2 font-medium text-fg">{report.historical.label}</p>
+            <p className="mt-2 text-sm text-fg">{report.historical.conviction}</p>
+            <p className="mt-2 text-sm leading-relaxed text-muted">{report.historical.summary}</p>
+          </section>
+        ) : null}
 
         <IndexBar value={report.woIndex} label="White Oak difference, all-history index (0–100)" />
 
@@ -195,6 +369,72 @@ function DetailBody({
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function SynthesisPanel({ report }: { report: InstrumentReport }) {
+  const directional = report.stance === "bid" || report.stance === "strong-bid";
+  const watchFor = directional
+    ? `A reaction from the ${report.zone?.label.toLowerCase() ?? "demand zone"}, followed by ${report.trendline?.direction.toLowerCase() ?? "bullish"} alignment on the entry timeframe.`
+    : report.stance === "offer" || report.stance === "strong-offer"
+      ? `A rejection from the ${report.zone?.label.toLowerCase() ?? "supply zone"}, followed by bearish alignment on the entry timeframe.`
+      : "A fresh supply or demand break that moves the positioning read out of balance.";
+  const invalidate = report.zone?.quality === "Stale"
+    ? "The current zone is already stale; wait for a new structural zone before acting."
+    : directional
+      ? "A daily close through demand, pressure turning bearish, or the institutional book unwinding its bid."
+      : report.stance === "offer" || report.stance === "strong-offer"
+        ? "A daily close through supply, pressure turning bullish, or the institutional book unwinding its offer."
+        : "No directional trigger appears; the thesis remains a wait state rather than a trade.";
+
+  return (
+    <section className="rounded-lg border border-accent/55 bg-[#272118] p-4 shadow-[0_0_0_1px_rgb(200_192_176_/_0.08)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Complete picture</p>
+          <h3 className="mt-1 font-display text-xl text-fg">The thesis is {report.thesisStatus.toLowerCase()}</h3>
+        </div>
+        <span className="font-mono text-sm text-accent">{report.confluence ? `${report.confluence.score}/${report.confluence.total}` : "—"}</span>
+      </div>
+      <p className="mt-3 text-sm leading-relaxed text-fg">{report.storyline?.summary ?? report.body}</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-md bg-bg/60 p-3"><p className="text-[10px] uppercase tracking-[0.12em] text-bid">Watch for</p><p className="mt-1 text-sm leading-relaxed text-fg">{watchFor}</p></div>
+        <div className="rounded-md bg-bg/60 p-3"><p className="text-[10px] uppercase tracking-[0.12em] text-offer">Invalidation</p><p className="mt-1 text-sm leading-relaxed text-fg">{invalidate}</p></div>
+      </div>
+    </section>
+  );
+}
+
+function DecisionCard({
+  title,
+  tone,
+  label,
+  confidence,
+}: {
+  title: string;
+  tone: "strong-bid" | "bid" | "cautious" | "offer" | "strong-offer" | "neutral" | "warning" | "caution";
+  label: string;
+  confidence: number;
+}) {
+  const toneClass =
+    tone === "strong-bid" || tone === "bid"
+      ? "border-bid/25 bg-bid/5 text-bid"
+      : tone === "strong-offer" || tone === "offer"
+        ? "border-offer/25 bg-offer/5 text-offer"
+        : tone === "warning"
+          ? "border-amber-400/35 bg-amber-500/5 text-amber-300"
+          : tone === "cautious"
+            ? "border-border bg-bg-subtle text-fg"
+            : "border-border bg-bg-subtle text-muted";
+
+  return (
+    <div className={`rounded-lg border p-3 ${toneClass}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] uppercase tracking-[0.14em] text-current/80">{title}</p>
+        <span className="text-[10px] uppercase tracking-[0.12em] text-current/80">{confidence}%</span>
+      </div>
+      <p className="mt-2 text-sm leading-relaxed text-current">{label}</p>
     </div>
   );
 }

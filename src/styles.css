@@ -136,3 +136,7 @@
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
+
+@utility input {
+  @apply mt-1 h-9 w-full rounded-md bg-bg-elevated px-2 text-sm text-fg shadow-[var(--shadow-border)] outline-none focus-visible:ring-2 focus-visible:ring-ring/70;
+}

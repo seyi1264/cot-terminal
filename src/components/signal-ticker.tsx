@@ -31,7 +31,7 @@ export function SignalTicker({ reports, onSelect }: { reports: InstrumentReport[
                   className="signal-ticker-item flex items-center gap-2 px-5 py-2.5 text-left text-xs text-muted transition-colors hover:text-fg focus-visible:bg-bg-subtle focus-visible:text-fg focus-visible:outline-none"
                 >
                   <span className="font-mono font-medium text-fg">{item.report.symbol}</span>
-                  <span>{stanceLabel(item.report.stance)}</span>
+                  <span className="hidden sm:inline">{stanceLabel(item.report.stance)}</span>
                   <Icon className={cn("size-3.5", item.kind === "extreme" ? "text-accent" : positive ? "text-bid" : "text-offer")} />
                   <span className={cn("font-mono tabular", item.report.woDiff >= 0 ? "text-bid" : "text-offer")}>
                     {formatSigned(item.report.woDiff)}

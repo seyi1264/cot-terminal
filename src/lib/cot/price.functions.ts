@@ -49,3 +49,24 @@ export const getMarketHistory = createServerFn({ method: "POST" })
         : [];
     });
   });
+
+export async function fetchIntradayPrice(symbol: string) {
+  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
+  url.searchParams.set("range", "1d");
+  url.searchParams.set("interval", "15m");
+  const response = await fetch(url, {
+    headers: { Accept: "application/json", "User-Agent": "OakLedger/1.0" },
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (!response.ok) throw new Error(`Intraday price source ${response.status}`);
+  const json = (await response.json()) as {
+    chart?: { result?: Array<{ meta?: { regularMarketPrice?: number }; timestamp?: number[]; indicators?: { quote?: Array<{ close?: Array<number | null> }> } }> };
+  };
+  const result = json.chart?.result?.[0];
+  const closes = result?.indicators?.quote?.[0]?.close ?? [];
+  const closeIndex = [...closes].map((value, index) => (value == null ? -1 : index)).at(-1) ?? -1;
+  const close = closeIndex >= 0 ? closes[closeIndex] : result?.meta?.regularMarketPrice;
+  if (typeof close !== "number" || !Number.isFinite(close)) throw new Error("Intraday price unavailable");
+  const timestamp = result?.timestamp?.[closeIndex];
+  return { close, timestamp: timestamp ? new Date(timestamp * 1000).toISOString() : new Date().toISOString() };
+}

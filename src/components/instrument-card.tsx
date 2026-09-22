@@ -39,7 +39,10 @@ export function InstrumentCard({
             {report.name} · {report.exchange}
           </p>
         </div>
-        <StanceChip stance={report.stance} />
+        <div className="flex flex-col items-end gap-1.5">
+          <StanceChip stance={report.stance} />
+          <span className="text-[9px] font-semibold tracking-[0.12em] text-subtle">{report.thesisStatus}</span>
+        </div>
       </div>
 
       <div className="mt-5 flex items-end justify-between gap-4">

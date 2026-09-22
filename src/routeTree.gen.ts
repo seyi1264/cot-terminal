@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPushCronRouteImport } from './routes/api/push/cron'
+import { Route as ApiPushZoneCronRouteImport } from './routes/api/push/zone-cron'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const ApiPushCronRoute = ApiPushCronRouteImport.update({
   path: '/api/push/cron',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPushZoneCronRoute = ApiPushZoneCronRouteImport.update({
+  id: '/api/push/zone-cron',
+  path: '/api/push/zone-cron',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/push/cron': typeof ApiPushCronRoute
+  '/api/push/zone-cron': typeof ApiPushZoneCronRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/push/cron': typeof ApiPushCronRoute
+  '/api/push/zone-cron': typeof ApiPushZoneCronRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/push/cron': typeof ApiPushCronRoute
+  '/api/push/zone-cron': typeof ApiPushZoneCronRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/push/cron'
+  fullPaths: '/' | '/api/push/cron' | '/api/push/zone-cron'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/push/cron'
-  id: '__root__' | '/' | '/api/push/cron'
+  to: '/' | '/api/push/cron' | '/api/push/zone-cron'
+  id: '__root__' | '/' | '/api/push/cron' | '/api/push/zone-cron'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiPushCronRoute: typeof ApiPushCronRoute
+  ApiPushZoneCronRoute: typeof ApiPushZoneCronRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPushCronRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/push/zone-cron': {
+      id: '/api/push/zone-cron'
+      path: '/api/push/zone-cron'
+      fullPath: '/api/push/zone-cron'
+      preLoaderRoute: typeof ApiPushZoneCronRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiPushCronRoute: ApiPushCronRoute,
+  ApiPushZoneCronRoute: ApiPushZoneCronRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

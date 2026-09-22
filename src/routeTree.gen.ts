@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiPushCronRouteImport } from './routes/api/push/cron'
 import { Route as ApiPushZoneCronRouteImport } from './routes/api/push/zone-cron'
 
@@ -30,6 +31,11 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPushCronRoute = ApiPushCronRouteImport.update({
   id: '/api/push/cron',
   path: '/api/push/cron',
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/push/cron': typeof ApiPushCronRoute
   '/api/push/zone-cron': typeof ApiPushZoneCronRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/push/cron': typeof ApiPushCronRoute
   '/api/push/zone-cron': typeof ApiPushZoneCronRoute
 }
@@ -60,20 +68,33 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/push/cron': typeof ApiPushCronRoute
   '/api/push/zone-cron': typeof ApiPushZoneCronRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/signup' | '/api/push/cron' | '/api/push/zone-cron'
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/api/auth/$'
+    | '/api/push/cron'
+    | '/api/push/zone-cron'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/signup' | '/api/push/cron' | '/api/push/zone-cron'
+  to:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/api/auth/$'
+    | '/api/push/cron'
+    | '/api/push/zone-cron'
   id:
     | '__root__'
     | '/'
     | '/login'
     | '/signup'
+    | '/api/auth/$'
     | '/api/push/cron'
     | '/api/push/zone-cron'
   fileRoutesById: FileRoutesById
@@ -82,6 +103,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiPushCronRoute: typeof ApiPushCronRoute
   ApiPushZoneCronRoute: typeof ApiPushZoneCronRoute
 }
@@ -109,6 +131,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/push/cron': {
       id: '/api/push/cron'
       path: '/api/push/cron'
@@ -130,6 +159,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiPushCronRoute: ApiPushCronRoute,
   ApiPushZoneCronRoute: ApiPushZoneCronRoute,
 }

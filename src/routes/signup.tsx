@@ -15,9 +15,13 @@ function Signup() {
   async function createAccount() {
     setBusy(true);
     setMessage("");
-    const result = await authClient.signUp.email({ name, email, password });
-    if (result.error) setMessage(result.error.message ?? "Account creation failed.");
-    else await navigate({ to: "/", search: { code: undefined, cat: undefined } });
+    try {
+      const result = await authClient.signUp.email({ name, email, password });
+      if (result.error) setMessage(result.error.message ?? "Account creation failed.");
+      else await navigate({ to: "/", search: { code: undefined, cat: undefined } });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Account creation failed. Check the account database configuration.");
+    }
     setBusy(false);
   }
 

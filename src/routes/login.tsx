@@ -17,9 +17,13 @@ function Login() {
   async function signInWithEmail() {
     setBusy(true);
     setMessage("");
-    const result = await authClient.signIn.email({ email, password });
-    if (result.error) setMessage(result.error.message ?? "Sign-in failed.");
-    else await navigate({ to: "/", search: { code: undefined, cat: undefined } });
+    try {
+      const result = await authClient.signIn.email({ email, password });
+      if (result.error) setMessage(result.error.message ?? "Sign-in failed.");
+      else await navigate({ to: "/", search: { code: undefined, cat: undefined } });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Sign-in failed. Check the account database configuration.");
+    }
     setBusy(false);
   }
 

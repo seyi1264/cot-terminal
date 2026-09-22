@@ -39,7 +39,7 @@ export function ZoneEditor({ report }: { report: InstrumentReport }) {
     setLoading(true);
     void listThesisZones()
       .then((items) => active && setZones(items.filter((zone) => zone.instrumentCode === report.code)))
-      .catch(() => active && setMessage("Zone storage is unavailable until the account database is ready."))
+      .catch((error: unknown) => active && setMessage(zoneErrorMessage(error, "load")))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [report.code]);
@@ -85,8 +85,8 @@ export function ZoneEditor({ report }: { report: InstrumentReport }) {
       setZones((current) => editingId ? current.map((zone) => zone.id === saved.id ? saved : zone) : [saved, ...current]);
       reset();
       setMessage("Zone saved. Thursday alerts are armed.");
-    } catch {
-      setMessage("The zone could not be saved. Check the account database connection.");
+    } catch (error) {
+      setMessage(zoneErrorMessage(error, "save"));
     } finally {
       setSaving(false);
     }
@@ -113,7 +113,7 @@ export function ZoneEditor({ report }: { report: InstrumentReport }) {
         {loading ? <span className="text-xs text-subtle">Loading</span> : null}
       </div>
 
-      {zones.length ? <div className="mt-4 space-y-2">{zones.map((zone) => <div key={zone.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-bg-elevated p-3"><div><p className="text-xs font-medium uppercase tracking-[0.1em] text-fg">{zone.direction} · {zone.timeframe} · {zone.quality}</p><p className="mt-1 font-mono text-xs tabular text-muted">{zone.lowerPrice} – {zone.upperPrice} · invalidation {zone.invalidationPrice}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => editZone(zone)} className="text-xs text-accent hover:text-fg">Edit</button><button type="button" onClick={() => void remove(zone)} className="text-xs text-offer hover:text-fg">Remove</button></div></div>)}</div> : null}
+      {zones.length ? <div className="mt-4 space-y-2"><p className="text-[11px] uppercase tracking-[0.12em] text-subtle">{zones.length} saved zone{zones.length === 1 ? "" : "s"} for this instrument · no app limit</p>{zones.map((zone) => <div key={zone.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-bg-elevated p-3"><div><p className="text-xs font-medium uppercase tracking-[0.1em] text-fg">{zone.direction} · {zone.timeframe} · {zone.quality}</p><p className="mt-1 font-mono text-xs tabular text-muted">{zone.lowerPrice} – {zone.upperPrice} · invalidation {zone.invalidationPrice}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => editZone(zone)} className="text-xs text-accent hover:text-fg">Edit</button><button type="button" onClick={() => void remove(zone)} className="text-xs text-offer hover:text-fg">Remove</button></div></div>)}</div> : null}
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <Field label="Direction"><select value={form.direction} onChange={(event) => updateForm("direction", event.target.value as Direction)} className="input"><option value="demand">Demand</option><option value="supply">Supply</option></select></Field>
@@ -127,6 +127,17 @@ export function ZoneEditor({ report }: { report: InstrumentReport }) {
       {message ? <p className={cn("mt-2 text-xs", message.includes("saved") ? "text-bid" : "text-muted")}>{message}</p> : null}
     </section>
   );
+}
+
+function zoneErrorMessage(error: unknown, operation: "load" | "save") {
+  const message = error instanceof Error ? error.message : "";
+  if (message === "Unauthorized") return "Sign in before saving zones.";
+  if (message.includes("DATABASE_URL") || message.includes("database")) {
+    return "The account database is not configured or reachable.";
+  }
+  return operation === "load"
+    ? "Zone storage is unavailable until the account database is ready."
+    : "The zone could not be saved. Check the account database connection.";
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

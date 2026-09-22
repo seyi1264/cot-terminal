@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { RefreshCw, Star } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { BrandMark } from "@/components/brand-mark";
@@ -12,6 +12,7 @@ import { WeeklyBriefing } from "@/components/weekly-briefing";
 import { AnalysisLab } from "@/components/analysis-lab";
 import { WatchlistPanel } from "@/components/watchlist-panel";
 import { Button } from "@/components/ui/button";
+import { SignInGate, UserButton } from "@/lib/auth/gates";
 import { getCotBoard } from "@/lib/cot/board.functions";
 import {
   DEFAULT_WATCHLIST_SETTINGS,
@@ -151,6 +152,9 @@ function Home() {
               <RefreshCw className={cn("size-3.5", pending && "animate-spin")} />
               Refresh
             </Button>
+            <SignInGate fallback={<Link to="/login" className="rounded-md border border-border px-3 py-2 text-xs font-medium text-fg hover:border-accent hover:text-accent">Sign in</Link>}>
+              <UserButton />
+            </SignInGate>
           </div>
         </div>
       </header>

@@ -138,8 +138,8 @@ function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <p className="hidden rounded-full border border-accent/35 bg-accent/10 px-3 py-1 font-mono text-[11px] text-accent sm:block">
-              Data as of {board.asOf ? formatDate(board.asOf) : "—"} · published Friday
+            <p className={cn("hidden rounded-full border px-3 py-1 font-mono text-[11px] sm:block", board.source === "live" ? "border-accent/35 bg-accent/10 text-accent" : "border-offer/40 bg-offer/10 text-offer")}>
+              Data as of {board.asOf ? formatDate(board.asOf) : "—"} · {board.source === "live" ? "published Friday" : "snapshot · live feed unavailable"}
             </p>
             <Button variant="quiet" size="md" onClick={() => setGuideOpen(true)}>
               How to read

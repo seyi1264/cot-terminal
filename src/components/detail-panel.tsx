@@ -442,8 +442,8 @@ function DecisionCard({
 }
 
 function TradingSignalPanel({ signal }: { signal: InstrumentReport["tradingSignal"] }) {
-  const tone = signal.action === "LONG" ? "border-bid/40 bg-bid/10" : signal.action === "SHORT" ? "border-offer/40 bg-offer/10" : "border-accent/40 bg-accent/10";
-  const actionTone = signal.action === "LONG" ? "text-bid" : signal.action === "SHORT" ? "text-offer" : "text-accent";
+  const tone = "border-accent/40 bg-accent/10";
+  const actionTone = "text-accent";
   return (
     <section className={`rounded-lg border p-4 ${tone}`} aria-label="Trading signal">
       <div className="flex flex-wrap items-start justify-between gap-3">

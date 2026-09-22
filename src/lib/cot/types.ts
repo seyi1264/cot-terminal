@@ -11,8 +11,8 @@ export type TriggerLogic = {
 };
 
 export type TradingSignal = {
-  action: "LONG" | "SHORT" | "WAIT";
-  label: "Institutional alignment" | "Institutional conflict" | "Insufficient confirmation";
+  action: "WAIT";
+  label: "COT context aligned" | "COT context conflicted" | "Insufficient confirmation";
   summary: string;
   institutional: "BULLISH" | "BEARISH" | "MIXED";
   speculators: "BULLISH" | "BEARISH" | "MIXED";

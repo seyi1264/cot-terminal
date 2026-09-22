@@ -462,30 +462,12 @@ function buildTradingSignal(
     : noncomm.net < 0 && woDiff < 0
       ? "BEARISH"
       : "MIXED";
-  const alignedLong = institutional === "BULLISH" && speculators === "BULLISH";
-  const alignedShort = institutional === "BEARISH" && speculators === "BEARISH";
-  if (alignedLong) {
-    return {
-      action: "LONG",
-      label: "Institutional alignment",
-      summary: "Commercial positioning and broader COT direction are both bullish. Wait for price to confirm the entry zone.",
-      institutional,
-      speculators,
-    };
-  }
-  if (alignedShort) {
-    return {
-      action: "SHORT",
-      label: "Institutional alignment",
-      summary: "Commercial positioning and broader COT direction are both bearish. Wait for price to confirm the entry zone.",
-      institutional,
-      speculators,
-    };
-  }
   return {
     action: "WAIT",
-    label: institutional === "MIXED" || speculators === "MIXED" ? "Insufficient confirmation" : "Institutional conflict",
-    summary: "Institutional and broader positioning do not agree. Do not treat the directional badge as an entry signal.",
+    label: institutional === speculators && institutional !== "MIXED" ? "COT context aligned" : institutional === "MIXED" || speculators === "MIXED" ? "Insufficient confirmation" : "COT context conflicted",
+    summary: institutional === speculators && institutional !== "MIXED"
+      ? "COT positioning provides a directional storyline, but White Oak methodology still requires price to reach the institutional supply or demand zone and confirm before entry."
+      : "COT positioning is conflicted or incomplete. Follow the storyline, then wait for price and an institutional supply or demand zone to confirm before entry.",
     institutional,
     speculators,
   };

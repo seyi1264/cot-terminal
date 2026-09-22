@@ -10,6 +10,14 @@ export type TriggerLogic = {
   matched: boolean;
 };
 
+export type TradingSignal = {
+  action: "LONG" | "SHORT" | "WAIT";
+  label: "Institutional alignment" | "Institutional conflict" | "Insufficient confirmation";
+  summary: string;
+  institutional: "BULLISH" | "BEARISH" | "MIXED";
+  speculators: "BULLISH" | "BEARISH" | "MIXED";
+};
+
 export type FlowKind =
   | "accum-long"
   | "accum-short"
@@ -166,6 +174,7 @@ export type InstrumentReport = {
   stance: Stance;
   thesisStatus: ThesisStatus;
   triggerLogic: TriggerLogic;
+  tradingSignal: TradingSignal;
   score: number;
   headline: string;
   body: string;

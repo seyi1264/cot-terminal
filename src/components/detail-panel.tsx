@@ -132,6 +132,8 @@ function DetailBody({
           </div>
         </section>
 
+        <TradingSignalPanel signal={report.tradingSignal} />
+
         <section>
           <p className="text-[11px] uppercase tracking-wide text-subtle">White Oak reading</p>
           <h3 className="mt-1 font-display text-xl text-fg">{report.headline}</h3>
@@ -436,6 +438,27 @@ function DecisionCard({
       </div>
       <p className="mt-2 text-sm leading-relaxed text-current">{label}</p>
     </div>
+  );
+}
+
+function TradingSignalPanel({ signal }: { signal: InstrumentReport["tradingSignal"] }) {
+  const tone = signal.action === "LONG" ? "border-bid/40 bg-bid/10" : signal.action === "SHORT" ? "border-offer/40 bg-offer/10" : "border-accent/40 bg-accent/10";
+  const actionTone = signal.action === "LONG" ? "text-bid" : signal.action === "SHORT" ? "text-offer" : "text-accent";
+  return (
+    <section className={`rounded-lg border p-4 ${tone}`} aria-label="Trading signal">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-subtle">Trading signal</p>
+          <h2 className={`mt-1 font-display text-2xl ${actionTone}`}>{signal.action}</h2>
+        </div>
+        <span className="rounded-full border border-current/30 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-current">{signal.label}</span>
+      </div>
+      <p className="mt-3 text-sm leading-relaxed text-fg">{signal.summary}</p>
+      <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+        <p className="rounded-md bg-bg/50 p-2 text-muted">Commercial/institutional flow: <strong className="text-fg">{signal.institutional}</strong></p>
+        <p className="rounded-md bg-bg/50 p-2 text-muted">Large-speculator direction: <strong className="text-fg">{signal.speculators}</strong></p>
+      </div>
+    </section>
   );
 }
 

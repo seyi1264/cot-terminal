@@ -447,6 +447,50 @@ function scoreReading(
   return { score, stance, flags };
 }
 
+function buildTradingSignal(
+  comm: GroupSnapshot,
+  noncomm: GroupSnapshot,
+  woDiff: number,
+): InstrumentReport["tradingSignal"] {
+  const institutional = comm.net > 0 && comm.dNet > 0
+    ? "BULLISH"
+    : comm.net < 0 && comm.dNet < 0
+      ? "BEARISH"
+      : "MIXED";
+  const speculators = noncomm.net > 0 && woDiff > 0
+    ? "BULLISH"
+    : noncomm.net < 0 && woDiff < 0
+      ? "BEARISH"
+      : "MIXED";
+  const alignedLong = institutional === "BULLISH" && speculators === "BULLISH";
+  const alignedShort = institutional === "BEARISH" && speculators === "BEARISH";
+  if (alignedLong) {
+    return {
+      action: "LONG",
+      label: "Institutional alignment",
+      summary: "Commercial positioning and broader COT direction are both bullish. Wait for price to confirm the entry zone.",
+      institutional,
+      speculators,
+    };
+  }
+  if (alignedShort) {
+    return {
+      action: "SHORT",
+      label: "Institutional alignment",
+      summary: "Commercial positioning and broader COT direction are both bearish. Wait for price to confirm the entry zone.",
+      institutional,
+      speculators,
+    };
+  }
+  return {
+    action: "WAIT",
+    label: institutional === "MIXED" || speculators === "MIXED" ? "Insufficient confirmation" : "Institutional conflict",
+    summary: "Institutional and broader positioning do not agree. Do not treat the directional badge as an entry signal.",
+    institutional,
+    speculators,
+  };
+}
+
 function invertPairLanguage(pair: string, stance: Stance): string {
   const label = stanceLabel(stance).toLowerCase();
   if (USD_BASE_PAIRS.has(pair)) {
@@ -780,6 +824,7 @@ export function analyzeInstrument(
     latest.oiChange,
     series,
   );
+  const tradingSignal = buildTradingSignal(comm, nc, woDiff);
   const { headline, body } = narrative(def, nc, comm, retail, woDiff, woIndex, stance, flags);
   const storyline = buildStoryline(woDiff, woDiffChange, nc, comm, retail, stance);
   const zone = buildZoneRead(woDiff, woIndex, stance);
@@ -824,6 +869,7 @@ export function analyzeInstrument(
     stance,
     thesisStatus,
     triggerLogic,
+    tradingSignal,
     score,
     headline,
     body,

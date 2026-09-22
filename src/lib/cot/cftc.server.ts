@@ -1,4 +1,3 @@
-import fallbackPack from "@/data/cot-fallback.json";
 import { INSTRUMENTS } from "./instruments";
 import { analyzeBoard, lagNote } from "./white-oak";
 import type { CotBoard, CotRawRow } from "./types";
@@ -24,26 +23,8 @@ const SELECT = [
   "change_in_nonrept_short_all",
 ].join(",");
 
-const CACHE_MS = 30 * 60 * 1000;
 const LOOKBACK_START = "1986-01-01";
 const ROW_LIMIT = "50000";
-
-type Packed = { keys: string[]; rows: Array<Array<string | number>> };
-
-type CacheEntry = { board: CotBoard; expires: number };
-
-let cache: CacheEntry | null = null;
-
-function unpack(pack: Packed): CotRawRow[] {
-  const keys = pack.keys;
-  return pack.rows.map((row) => {
-    const out: Record<string, string | number> = {};
-    for (let i = 0; i < keys.length; i++) {
-      out[keys[i]!] = row[i]!;
-    }
-    return out as unknown as CotRawRow;
-  });
-}
 
 function coerceRows(raw: unknown[]): CotRawRow[] {
   return raw.map((item) => {
@@ -79,13 +60,13 @@ function coerceRows(raw: unknown[]): CotRawRow[] {
   });
 }
 
-function boardFromRows(rows: CotRawRow[], source: "live" | "fallback"): CotBoard {
+function boardFromRows(rows: CotRawRow[]): CotBoard {
   const instruments = analyzeBoard(rows);
   const asOf = instruments.reduce((latest, row) => (row.asOf > latest ? row.asOf : latest), "");
   return {
     asOf,
     fetchedAt: new Date().toISOString(),
-    source,
+    source: "live",
     lagNote: lagNote(asOf || "the latest Tuesday"),
     instruments,
   };
@@ -117,20 +98,18 @@ async function fetchLive(): Promise<CotRawRow[]> {
   return coerceRows(json);
 }
 
-export async function loadBoard(force = false): Promise<CotBoard> {
-  if (!force && cache && cache.expires > Date.now()) {
-    return cache.board;
-  }
+export async function loadBoard(_force = false): Promise<CotBoard> {
   try {
     const rows = await fetchLive();
-    const board = boardFromRows(rows, "live");
-    cache = { board, expires: Date.now() + CACHE_MS };
-    return board;
+    return boardFromRows(rows);
   } catch (err) {
-    console.error("[cot] live CFTC fetch failed, using snapshot", err);
-    const rows = unpack(fallbackPack as Packed);
-    const board = boardFromRows(rows, "fallback");
-    cache = { board, expires: Date.now() + 5 * 60 * 1000 };
-    return board;
+    console.error("[cot] live CFTC fetch failed; no data loaded", err);
+    return {
+      asOf: "",
+      fetchedAt: new Date().toISOString(),
+      source: "unavailable",
+      lagNote: "Live CFTC data is unavailable. No cached positioning data was loaded.",
+      instruments: [],
+    };
   }
 }

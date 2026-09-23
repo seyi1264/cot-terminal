@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { resolveSignInGateState } from "./sign-in-gate.ts";
+import { canSaveZones, resolveSignInGateState } from "./sign-in-gate.ts";
 
 describe("resolveSignInGateState", () => {
   it("is pending while the session check is in flight, user or not", () => {
@@ -26,5 +26,11 @@ describe("resolveSignInGateState", () => {
       resolveSignInGateState({ isPending: false, hasUser: false }),
       "signed_out",
     );
+  });
+
+  it("blocks zone saves until the visitor is authenticated", () => {
+    assert.equal(canSaveZones({ isPending: true, hasUser: false }), false);
+    assert.equal(canSaveZones({ isPending: false, hasUser: false }), false);
+    assert.equal(canSaveZones({ isPending: false, hasUser: true }), true);
   });
 });

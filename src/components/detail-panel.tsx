@@ -2,7 +2,8 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Info, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { formatContracts, formatDate, formatSigned } from "@/lib/cot/format";
-import { getMarketHistory, getMarketPrice } from "@/lib/cot/price.functions";
+import { getMarketPrice, getMarketTimeframes } from "@/lib/cot/price.functions";
+import { analyzeMultiTimeframe, type MultiTimeframeRead } from "@/lib/cot/price-action";
 import { listThesisZones, type ThesisZone } from "@/lib/cot/zones.functions";
 import type { InstrumentReport } from "@/lib/cot/types";
 import {
@@ -45,6 +46,7 @@ type MarketConfirmation = {
   currentPrice: number | null;
   previousClose: number | null;
   zone: ThesisZone | null;
+  priceAction: MultiTimeframeRead | null;
 };
 
 export function DetailPanel({
@@ -83,6 +85,7 @@ function DetailBody({
     currentPrice: null,
     previousClose: null,
     zone: null,
+    priceAction: null,
   });
   const recent = useMemo(() => [...report.series].slice(-13).reverse(), [report.series]);
   const signalChecklist = useMemo(() => {
@@ -131,26 +134,27 @@ function DetailBody({
   useEffect(() => {
     let active = true;
     const symbol = PRICE_SYMBOLS[report.pair];
-    setMarketConfirmation({ status: "loading", currentPrice: null, previousClose: null, zone: null });
+    setMarketConfirmation({ status: "loading", currentPrice: null, previousClose: null, zone: null, priceAction: null });
     if (!symbol) {
       setMarketConfirmation((current) => ({ ...current, status: "unavailable" }));
       return () => { active = false; };
     }
     void Promise.all([
       getMarketPrice({ data: { symbol } }),
-      getMarketHistory({ data: { symbol } }),
+      getMarketTimeframes({ data: { symbol } }),
       listThesisZones().catch(() => [] as ThesisZone[]),
-    ]).then(([price, history, zones]) => {
+    ]).then(([price, timeframes, zones]) => {
       if (!active) return;
       const currentZone = zones.find((zone) => zone.instrumentCode === report.code && zone.active && zone.quality !== "removed") ?? null;
       setMarketConfirmation({
         status: "ready",
         currentPrice: price.close,
-        previousClose: history.at(-2)?.close ?? null,
+        previousClose: timeframes.daily.at(-2)?.close ?? null,
         zone: currentZone,
+        priceAction: analyzeMultiTimeframe(timeframes),
       });
     }).catch(() => {
-      if (active) setMarketConfirmation({ status: "unavailable", currentPrice: null, previousClose: null, zone: null });
+      if (active) setMarketConfirmation({ status: "unavailable", currentPrice: null, previousClose: null, zone: null, priceAction: null });
     });
     return () => { active = false; };
   }, [report.code, report.pair]);
@@ -521,8 +525,11 @@ function TradingSignalPanel({
   const priceConfirmed = insideZone && previousClose !== null && currentPrice !== null
     && ((zoneDirection === "demand" && currentPrice > previousClose)
       || (zoneDirection === "supply" && currentPrice < previousClose));
+  const priceActionConfirmed = market.priceAction?.aligned === true
+    && ((zoneDirection === "demand" && market.priceAction.direction === "Bullish")
+      || (zoneDirection === "supply" && market.priceAction.direction === "Bearish"));
   const aligned = signal.label === "COT context aligned";
-  const action = aligned && priceConfirmed
+  const action = aligned && priceConfirmed && priceActionConfirmed
     ? zoneDirection === "demand" ? "LONG" : "SHORT"
     : "WAIT";
   const tone = action === "LONG" ? "border-bid/40 bg-bid/10" : action === "SHORT" ? "border-offer/40 bg-offer/10" : "border-accent/40 bg-accent/10";
@@ -537,6 +544,8 @@ function TradingSignalPanel({
           ? `Price is not inside the saved ${market.zone.direction} zone. Wait for price to reach the zone before looking for confirmation.`
           : !priceConfirmed
             ? "Price is inside the saved zone, but the latest move has not confirmed the zone direction yet."
+            : !priceActionConfirmed
+              ? market.priceAction?.summary ?? "Price-action confirmation is unavailable."
             : signal.summary;
   return (
     <section className={`rounded-lg border p-4 ${tone}`} aria-label="Trading signal">
@@ -548,6 +557,17 @@ function TradingSignalPanel({
         <span className="rounded-full border border-current/30 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-current">{signal.label}</span>
       </div>
       <p className="mt-3 text-sm leading-relaxed text-fg">{summary}</p>
+      {market.priceAction ? (
+        <div className="mt-3 space-y-2 text-xs text-muted">
+          <p>{market.priceAction.summary}</p>
+          <div className="grid gap-2 sm:grid-cols-5">
+            {(["monthly", "weekly", "daily", "fourHour", "oneHour"] as const).map((timeframe) => {
+              const read = market.priceAction!.timeframes[timeframe];
+              return <p key={timeframe} className="rounded-md bg-bg/50 p-2"><strong className="text-fg">{timeframe === "fourHour" ? "4H" : timeframe === "oneHour" ? "1H" : timeframe === "monthly" ? "1M" : timeframe === "weekly" ? "1W" : "1D"}</strong><br />{read.structure} · {read.momentumShift}{read.displacement ? " · displacement" : ""}</p>;
+            })}
+          </div>
+        </div>
+      ) : null}
       <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
         <p className="rounded-md bg-bg/50 p-2 text-muted">Commercial/institutional flow: <strong className="text-fg">{signal.institutional}</strong></p>
         <p className="rounded-md bg-bg/50 p-2 text-muted">Large-speculator direction: <strong className="text-fg">{signal.speculators}</strong></p>

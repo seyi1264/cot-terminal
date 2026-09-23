@@ -1,7 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { createThesisZone, listThesisZones, removeThesisZone, updateThesisZone, type ThesisZone } from "@/lib/cot/zones.functions";
 import type { InstrumentReport } from "@/lib/cot/types";
 import { Button } from "@/components/ui/button";
+import { SignInGate } from "@/lib/auth/gates";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { canSaveZones } from "@/lib/auth/sign-in-gate";
 import { cn } from "@/lib/utils";
 
 type Direction = ThesisZone["direction"];
@@ -27,6 +31,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export function ZoneEditor({ report }: { report: InstrumentReport }) {
+  const { user, isPending } = useCurrentUserState();
   const [zones, setZones] = useState<ThesisZone[]>([]);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -34,15 +39,22 @@ export function ZoneEditor({ report }: { report: InstrumentReport }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
+  const canEditZones = canSaveZones({ isPending, hasUser: user !== null });
+
   useEffect(() => {
     let active = true;
+    if (!canEditZones) {
+      setZones([]);
+      setLoading(false);
+      return () => { active = false; };
+    }
     setLoading(true);
     void listThesisZones()
       .then((items) => active && setZones(items.filter((zone) => zone.instrumentCode === report.code)))
       .catch((error: unknown) => active && setMessage(zoneErrorMessage(error, "load")))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [report.code]);
+  }, [report.code, canEditZones]);
 
   function updateForm<Key extends keyof FormState>(key: Key, value: FormState[Key]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -103,29 +115,54 @@ export function ZoneEditor({ report }: { report: InstrumentReport }) {
   }
 
   return (
-    <section className="rounded-lg border border-border bg-bg p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.14em] text-accent">Confirmed price zone</p>
-          <h3 className="mt-1 font-display text-lg text-fg">Mark the area you want watched</h3>
-          <p className="mt-1 text-xs leading-relaxed text-muted">Numeric boundaries are trader-confirmed. Thursday polling will alert once when price enters the zone.</p>
+    <SignInGate
+      fallback={
+        <section className="rounded-lg border border-border bg-bg p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-accent">Confirmed price zone</p>
+              <h3 className="mt-1 font-display text-lg text-fg">Sign in before saving zones</h3>
+              <p className="mt-1 text-xs leading-relaxed text-muted">Your account keeps confirmed supply and demand zones separate from the market’s general reading.</p>
+            </div>
+          </div>
+          <p className="mt-4 rounded-md border border-offer/30 bg-offer/10 p-3 text-xs leading-relaxed text-offer">
+            Sign in to save a zone and enable Thursday alerts for this instrument.
+          </p>
+          <div className="mt-4">
+            <Link
+              to="/login"
+              className="inline-flex items-center rounded-md bg-accent px-3 py-2 text-xs font-medium text-bg transition-opacity hover:opacity-85"
+            >
+              Sign in to continue
+            </Link>
+          </div>
+        </section>
+      }
+    >
+      <section className="rounded-lg border border-border bg-bg p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-accent">Confirmed price zone</p>
+            <h3 className="mt-1 font-display text-lg text-fg">Mark the area you want watched</h3>
+            <p className="mt-1 text-xs leading-relaxed text-muted">Numeric boundaries are trader-confirmed. Thursday polling will alert once when price enters the zone.</p>
+          </div>
+          {loading ? <span className="text-xs text-subtle">Loading</span> : null}
         </div>
-        {loading ? <span className="text-xs text-subtle">Loading</span> : null}
-      </div>
 
-      {zones.length ? <div className="mt-4 space-y-2"><p className="text-[11px] uppercase tracking-[0.12em] text-subtle">{zones.length} saved zone{zones.length === 1 ? "" : "s"} for this instrument · no app limit</p>{zones.map((zone) => <div key={zone.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-bg-elevated p-3"><div><p className="text-xs font-medium uppercase tracking-[0.1em] text-fg">{zone.direction} · {zone.timeframe} · {zone.quality}</p><p className="mt-1 font-mono text-xs tabular text-muted">{zone.lowerPrice} – {zone.upperPrice} · invalidation {zone.invalidationPrice}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => editZone(zone)} className="text-xs text-accent hover:text-fg">Edit</button><button type="button" onClick={() => void remove(zone)} className="text-xs text-offer hover:text-fg">Remove</button></div></div>)}</div> : null}
+        {zones.length ? <div className="mt-4 space-y-2"><p className="text-[11px] uppercase tracking-[0.12em] text-subtle">{zones.length} saved zone{zones.length === 1 ? "" : "s"} for this instrument · no app limit</p>{zones.map((zone) => <div key={zone.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-bg-elevated p-3"><div><p className="text-xs font-medium uppercase tracking-[0.1em] text-fg">{zone.direction} · {zone.timeframe} · {zone.quality}</p><p className="mt-1 font-mono text-xs tabular text-muted">{zone.lowerPrice} – {zone.upperPrice} · invalidation {zone.invalidationPrice}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => editZone(zone)} className="text-xs text-accent hover:text-fg">Edit</button><button type="button" onClick={() => void remove(zone)} className="text-xs text-offer hover:text-fg">Remove</button></div></div>)}</div> : null}
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <Field label="Direction"><select value={form.direction} onChange={(event) => updateForm("direction", event.target.value as Direction)} className="input"><option value="demand">Demand</option><option value="supply">Supply</option></select></Field>
-        <Field label="Timeframe"><select value={form.timeframe} onChange={(event) => updateForm("timeframe", event.target.value as Timeframe)} className="input">{["monthly", "daily", "weekly", "4hr", "1hr", "6M"].map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
-        <Field label="Lower price"><input className="input" type="number" step="any" value={form.lowerPrice} onChange={(event) => updateForm("lowerPrice", event.target.value)} placeholder="Zone floor" /></Field>
-        <Field label="Upper price"><input className="input" type="number" step="any" value={form.upperPrice} onChange={(event) => updateForm("upperPrice", event.target.value)} placeholder="Zone ceiling" /></Field>
-        <Field label="Invalidation price"><input className="input" type="number" step="any" value={form.invalidationPrice} onChange={(event) => updateForm("invalidationPrice", event.target.value)} placeholder="Thesis invalidation" /></Field>
-        <Field label="Quality"><select value={form.quality} onChange={(event) => updateForm("quality", event.target.value as Exclude<Quality, "removed">)} className="input"><option value="fresh">Fresh</option><option value="tested">Tested</option></select></Field>
-      </div>
-      <div className="mt-3 flex items-center gap-2"><Button variant="quiet" size="sm" onClick={() => void save()} disabled={saving}>{saving ? "Saving..." : editingId ? "Update zone" : "Save zone + alert"}</Button>{editingId ? <button type="button" onClick={reset} className="text-xs text-muted hover:text-fg">Cancel</button> : null}</div>
-      {message ? <p className={cn("mt-2 text-xs", message.includes("saved") ? "text-bid" : "text-muted")}>{message}</p> : null}
-    </section>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <Field label="Direction"><select value={form.direction} onChange={(event) => updateForm("direction", event.target.value as Direction)} className="input"><option value="demand">Demand</option><option value="supply">Supply</option></select></Field>
+          <Field label="Timeframe"><select value={form.timeframe} onChange={(event) => updateForm("timeframe", event.target.value as Timeframe)} className="input">{["monthly", "daily", "weekly", "4hr", "1hr", "6M"].map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
+          <Field label="Lower price"><input className="input" type="number" step="any" value={form.lowerPrice} onChange={(event) => updateForm("lowerPrice", event.target.value)} placeholder="Zone floor" /></Field>
+          <Field label="Upper price"><input className="input" type="number" step="any" value={form.upperPrice} onChange={(event) => updateForm("upperPrice", event.target.value)} placeholder="Zone ceiling" /></Field>
+          <Field label="Invalidation price"><input className="input" type="number" step="any" value={form.invalidationPrice} onChange={(event) => updateForm("invalidationPrice", event.target.value)} placeholder="Thesis invalidation" /></Field>
+          <Field label="Quality"><select value={form.quality} onChange={(event) => updateForm("quality", event.target.value as Exclude<Quality, "removed">)} className="input"><option value="fresh">Fresh</option><option value="tested">Tested</option></select></Field>
+        </div>
+        <div className="mt-3 flex items-center gap-2"><Button variant="quiet" size="sm" onClick={() => void save()} disabled={saving}>{saving ? "Saving..." : editingId ? "Update zone" : "Save zone + alert"}</Button>{editingId ? <button type="button" onClick={reset} className="text-xs text-muted hover:text-fg">Cancel</button> : null}</div>
+        {message ? <p className={cn("mt-2 text-xs", message.includes("saved") ? "text-bid" : "text-muted")}>{message}</p> : null}
+      </section>
+    </SignInGate>
   );
 }
 

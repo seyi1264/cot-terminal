@@ -11,3 +11,7 @@ export function resolveSignInGateState(
   if (input.isPending) return "pending";
   return input.hasUser ? "signed_in" : "signed_out";
 }
+
+export function canSaveZones(input: SignInGateInput): boolean {
+  return !input.isPending && input.hasUser;
+}

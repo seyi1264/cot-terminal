@@ -126,6 +126,7 @@ export type RetailDivergenceInput = {
   woDiff: number;
   retailExtreme: number;
   stance: Stance;
+  priceChange?: number;
 };
 
 export type RetailDivergenceRead = {
@@ -139,6 +140,7 @@ export function summarizeRetailDivergence({
   woDiff,
   retailExtreme,
   stance,
+  priceChange = 0,
 }: RetailDivergenceInput): RetailDivergenceRead {
   const aggressiveLong = retailNet > 0 && retailExtreme >= 75;
   const aggressiveShort = retailNet < 0 && retailExtreme >= 75;
@@ -146,7 +148,7 @@ export function summarizeRetailDivergence({
 
   if (aggressiveLong) {
     return {
-      label: "Crowded retail long: the tape is being bought into by the crowd while the institutional book is being sold. Contrarian fade risk is rising.",
+      label: "Crowded retail long: the tape is being bought into by the crowd while the institutional book is being sold. This is the classic late-stage handoff where the banks are transferring longs to retail; contrarian fade risk is rising.",
       tone: "warning",
       confidence: 78,
     };
@@ -154,7 +156,9 @@ export function summarizeRetailDivergence({
 
   if (aggressiveShort) {
     return {
-      label: "Crowded retail short: the crowd is leaning into the offer while institutions may be accumulating against it. Contrarian upside risk is rising.",
+      label: priceChange > 0
+        ? "Crowded retail short with upside price resilience: the crowd is selling the headline while price spikes back into the range. Institutions may be absorbing those shorts; contrarian upside risk is rising."
+        : "Crowded retail short: the crowd is leaning into the offer while institutions may be accumulating against it. Contrarian upside risk is rising.",
       tone: "warning",
       confidence: 78,
     };
@@ -361,6 +365,7 @@ function scoreReading(
   else if (woIndex <= 35) score -= 1;
 
   const distributionTop = isDistributionSetup(woDiff, nc, comm, retail);
+  const retailExtreme = retail.index;
 
   if (distributionTop) {
     score -= 2;
@@ -404,6 +409,11 @@ function scoreReading(
   }
 
   if (nc.flow.kind === "accum-long" || nc.flow.kind === "cover-short") score += 1;
+  if (nc.flow.kind === "cover-short" && nc.index <= 30) {
+    flags.push(
+      "Large specs are covering shorts from an extreme — the rally may be relief-driven; require fresh demand to hold before treating it as a new bullish trend",
+    );
+  }
   if (
     nc.flow.kind === "accum-short" ||
     nc.flow.kind === "profit-long" ||
@@ -431,6 +441,19 @@ function scoreReading(
   }
   if (nc.flow.kind === "profit-short" && nc.index <= 30) {
     flags.push("Profit taking: large specs covering shorts near an extreme");
+  }
+
+  const stretchedLongHandoff =
+    nc.net > 0 &&
+    nc.index >= 80 &&
+    retail.net > 0 &&
+    retailExtreme >= 75 &&
+    (comm.dNet > 0 || comm.net < 0 || oiChange < 0);
+  if (stretchedLongHandoff) {
+    flags.push(
+      "Institutional long handoff: large specs are stretched, retail is crowded long, and the bank book is taking profits — late-stage long exhaustion risk.",
+    );
+    score -= 2;
   }
 
   if (retailDiverging) {

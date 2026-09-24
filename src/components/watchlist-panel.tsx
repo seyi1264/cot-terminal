@@ -1,18 +1,16 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Bell, Check, Star, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   DEFAULT_WATCHLIST_SETTINGS,
   type WatchlistSettings,
   getWatchAlerts,
-  requestNotificationPermission,
+  readWatchlistSession,
+  writeWatchlistSession,
 } from "@/lib/cot/watchlist";
-import { getPushPublicKey, savePushSubscription } from "@/lib/cot/push.functions";
 import type { InstrumentReport } from "@/lib/cot/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-const STORAGE_KEY = "oak-ledger-watchlist";
 
 export function WatchlistPanel({
   reports,
@@ -22,8 +20,6 @@ export function WatchlistPanel({
   onCodesChange,
   settings,
   onSettingsChange,
-  notificationPermission,
-  onNotificationPermissionChange,
 }: {
   reports: InstrumentReport[];
   open: boolean;
@@ -32,67 +28,26 @@ export function WatchlistPanel({
   onCodesChange: (codes: string[]) => void;
   settings: WatchlistSettings;
   onSettingsChange: (settings: WatchlistSettings) => void;
-  notificationPermission: NotificationPermission | "unsupported";
-  onNotificationPermissionChange: (permission: NotificationPermission | "unsupported") => void;
 }) {
-  const [hydrated, setHydrated] = useState(false);
-  const [pushStatus, setPushStatus] = useState<"idle" | "ready" | "unavailable">("idle");
   const watched = useMemo(
     () => reports.filter((report) => codes.includes(report.code)),
     [codes, reports],
   );
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as {
-        codes?: unknown;
-        settings?: Partial<WatchlistSettings>;
-      } | null;
-      if (Array.isArray(saved?.codes)) {
-        onCodesChange(saved.codes.filter((code): code is string => typeof code === "string"));
-      }
-      if (saved?.settings) {
-        onSettingsChange({
-          extremeThreshold: numberOrDefault(saved.settings.extremeThreshold, DEFAULT_WATCHLIST_SETTINGS.extremeThreshold),
-          shiftThreshold: numberOrDefault(saved.settings.shiftThreshold, DEFAULT_WATCHLIST_SETTINGS.shiftThreshold),
-          notificationsEnabled: saved.settings.notificationsEnabled === true,
-        });
-      }
-    } catch {
-      setHydrated(true);
+    const saved = readWatchlistSession();
+    if (saved.codes.length || saved.settings !== DEFAULT_WATCHLIST_SETTINGS) {
+      onCodesChange(saved.codes);
+      onSettingsChange(saved.settings);
     }
-    setHydrated(true);
   }, [onCodesChange, onSettingsChange]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ codes, settings }));
-  }, [codes, hydrated, settings]);
+    writeWatchlistSession(codes, settings);
+  }, [codes, settings]);
 
   function toggleCode(code: string) {
     onCodesChange(codes.includes(code) ? codes.filter((item) => item !== code) : [...codes, code]);
-  }
-
-  async function enableNotifications() {
-    const permission = await requestNotificationPermission();
-    onNotificationPermissionChange(permission);
-    if (permission !== "granted") return;
-    onSettingsChange({ ...settings, notificationsEnabled: true });
-    try {
-      const { key } = await getPushPublicKey({});
-      const registration = await navigator.serviceWorker?.ready;
-      if (!key || !registration) throw new Error("Push is not configured");
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToBytes(key),
-      });
-      const json = subscription.toJSON();
-      if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error("Subscription unavailable");
-      await savePushSubscription({ data: { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } } });
-      setPushStatus("ready");
-    } catch {
-      setPushStatus("unavailable");
-    }
   }
 
   function updateSettings(patch: Partial<WatchlistSettings>) {
@@ -193,30 +148,8 @@ export function WatchlistPanel({
                   </select>
                 </label>
               </div>
-              <div className="mt-5 flex items-center justify-between gap-4 rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]">
-                <div>
-                  <p className="text-sm text-fg">Browser notifications</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted">
-                    {notificationPermission === "granted"
-                      ? pushStatus === "ready"
-                        ? "Enabled for this device and ready to receive alerts."
-                        : "Permission is granted. The watchlist is preparing the delivery subscription."
-                      : notificationPermission === "denied"
-                        ? "Blocked by the browser. Re-enable Oak & Ledger in site settings."
-                        : notificationPermission === "unsupported"
-                          ? "This browser does not support notifications."
-                          : "Get a device notification when a fresh snapshot crosses a threshold."}
-                  </p>
-                </div>
-                {notificationPermission === "granted" ? (
-                  <span className={cn("shrink-0 text-xs", pushStatus === "ready" ? "text-bid" : "text-accent")}>
-                    {pushStatus === "ready" ? "Ready" : "Enabled"}
-                  </span>
-                ) : notificationPermission === "unsupported" || notificationPermission === "denied" ? null : (
-                  <Button variant="quiet" size="sm" onClick={enableNotifications}>
-                    Enable
-                  </Button>
-                )}
+              <div className="mt-5 rounded-lg bg-bg p-3 text-xs leading-relaxed text-muted shadow-[var(--shadow-border)]">
+                Thresholds are saved in this session and used to review whether a watched market is moving into a new positioning regime.
               </div>
             </section>
 
@@ -258,12 +191,3 @@ export function WatchlistPanel({
   );
 }
 
-function numberOrDefault(value: unknown, fallback: number) {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function urlBase64ToBytes(value: string) {
-  const padding = "=".repeat((4 - (value.length % 4)) % 4);
-  const raw = atob(`${value.replaceAll("-", "+").replaceAll("_", "/")}${padding}`);
-  return Uint8Array.from(raw, (character) => character.charCodeAt(0));
-}

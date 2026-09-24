@@ -55,7 +55,9 @@ export function ResearchDesk({
   function saveNote(value: string) {
     const next = { ...notes, [noteCode]: value };
     setNotes(next);
-    localStorage.setItem("oak-ledger-thesis-notes", JSON.stringify(next));
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("oak-ledger-thesis-notes", JSON.stringify(next));
+    }
   }
 
   function exportBoard() {
@@ -395,7 +397,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
 function Notes({ reports, report, value, onCodeChange, onChange }: { reports: InstrumentReport[]; report: InstrumentReport; value: string; onCodeChange: (code: string) => void; onChange: (value: string) => void }) {
   return <div className="mt-5 grid gap-4 lg:grid-cols-[16rem_1fr]">
     <select value={report.code} onChange={(event) => onCodeChange(event.target.value)} className="h-9 rounded-md bg-bg-elevated px-2 text-sm text-fg shadow-[var(--shadow-border)]">{reports.map((item) => <option key={item.code} value={item.code}>{item.symbol} · {item.name}</option>)}</select>
-    <div><textarea value={value} onChange={(event) => onChange(event.target.value)} placeholder="Thesis, catalyst, invalidation level..." className="min-h-32 w-full resize-y rounded-lg bg-bg-elevated p-3 text-sm leading-relaxed text-fg outline-none shadow-[var(--shadow-border)] placeholder:text-subtle focus:shadow-[var(--shadow-border-hover)]" /><p className="mt-2 text-xs text-subtle">Saved locally on this device.</p></div>
+    <div><textarea value={value} onChange={(event) => onChange(event.target.value)} placeholder="Thesis, catalyst, invalidation level..." className="min-h-32 w-full resize-y rounded-lg bg-bg-elevated p-3 text-sm leading-relaxed text-fg outline-none shadow-[var(--shadow-border)] placeholder:text-subtle focus:shadow-[var(--shadow-border-hover)]" /><p className="mt-2 text-xs text-subtle">Saved in this session for the current analysis flow.</p></div>
   </div>;
 }
 
@@ -426,7 +428,7 @@ function sampleIndexed<T>(items: T[], maxPoints: number): Array<{ value: T; inde
 function readNotes(): Record<string, string> {
   if (typeof window === "undefined") return {};
   try {
-    const value = JSON.parse(localStorage.getItem("oak-ledger-thesis-notes") ?? "{}") as unknown;
+    const value = JSON.parse(window.sessionStorage.getItem("oak-ledger-thesis-notes") ?? "{}") as unknown;
     return value && typeof value === "object" ? value as Record<string, string> : {};
   } catch {
     return {};

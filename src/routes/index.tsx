@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { RefreshCw, Star } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { BrandMark } from "@/components/brand-mark";
@@ -12,14 +12,13 @@ import { WeeklyBriefing } from "@/components/weekly-briefing";
 import { AnalysisLab } from "@/components/analysis-lab";
 import { WatchlistPanel } from "@/components/watchlist-panel";
 import { Button } from "@/components/ui/button";
-import { SignInGate, UserButton } from "@/lib/auth/gates";
 import { getCotBoard } from "@/lib/cot/board.functions";
 import {
   DEFAULT_WATCHLIST_SETTINGS,
   getWatchAlerts,
-  notificationSupport,
-  showWatchAlerts,
+  readWatchlistSession,
   type WatchlistSettings,
+  writeWatchlistSession,
 } from "@/lib/cot/watchlist";
 import { CATEGORY_LABEL } from "@/lib/cot/instruments";
 import { formatDate } from "@/lib/cot/format";
@@ -49,11 +48,9 @@ function Home() {
   const [pending, start] = useTransition();
   const [guideOpen, setGuideOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
-  const [watchlistCodes, setWatchlistCodes] = useState<string[]>([]);
-  const [watchlistSettings, setWatchlistSettings] = useState<WatchlistSettings>(DEFAULT_WATCHLIST_SETTINGS);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(
-    "default",
-  );
+  const initialSession = useMemo(() => readWatchlistSession(), []);
+  const [watchlistCodes, setWatchlistCodes] = useState<string[]>(initialSession.codes);
+  const [watchlistSettings, setWatchlistSettings] = useState<WatchlistSettings>(initialSession.settings);
   const [sort, setSort] = useState<SortKey>("stance");
   const cat = (CATS.includes(search.cat as CatFilter) ? search.cat : "all") as CatFilter;
 
@@ -71,35 +68,8 @@ function Home() {
   const balancedCount = board.instruments.filter((row) => row.stance === "balanced").length;
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("oak-ledger-watchlist") ?? "null") as {
-        codes?: unknown;
-        settings?: Partial<WatchlistSettings>;
-      } | null;
-      if (Array.isArray(saved?.codes)) setWatchlistCodes(saved.codes.filter((code): code is string => typeof code === "string"));
-      if (saved?.settings) setWatchlistSettings({
-        extremeThreshold: typeof saved.settings.extremeThreshold === "number" ? saved.settings.extremeThreshold : DEFAULT_WATCHLIST_SETTINGS.extremeThreshold,
-        shiftThreshold: typeof saved.settings.shiftThreshold === "number" ? saved.settings.shiftThreshold : DEFAULT_WATCHLIST_SETTINGS.shiftThreshold,
-        notificationsEnabled: saved.settings.notificationsEnabled === true,
-      });
-    } catch {
-      setWatchlistCodes([]);
-    }
-    setNotificationPermission(notificationSupport());
-  }, []);
-
-  useEffect(() => {
-    if (!watchlistSettings.notificationsEnabled || notificationPermission !== "granted" || !watchAlerts.length) return;
-    const fingerprint = `${board.asOf}:${watchAlerts.map((alert) => `${alert.code}:${alert.reasons.join("|")}`).join(",")}`;
-    const previous = localStorage.getItem("oak-ledger-last-notification");
-    localStorage.setItem("oak-ledger-last-notification", fingerprint);
-    if (previous && previous !== fingerprint) void showWatchAlerts(watchAlerts);
-  }, [board.asOf, notificationPermission, watchAlerts, watchlistSettings.notificationsEnabled]);
-
-  useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    void navigator.serviceWorker.register("/notification-worker.js");
-  }, []);
+    writeWatchlistSession(watchlistCodes, watchlistSettings);
+  }, [watchlistCodes, watchlistSettings]);
 
   function setCode(code?: string) {
     void navigate({
@@ -152,9 +122,6 @@ function Home() {
               <RefreshCw className={cn("size-3.5", pending && "animate-spin")} />
               Refresh
             </Button>
-            <SignInGate fallback={<Link to="/login" className="rounded-md border border-border px-3 py-2 text-xs font-medium text-fg hover:border-accent hover:text-accent">Sign in</Link>}>
-              <UserButton />
-            </SignInGate>
           </div>
         </div>
       </header>
@@ -206,13 +173,13 @@ function Home() {
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {watchedReports.map((report) => {
-                  const extreme = Math.max(report.woIndex, 100 - report.woIndex);
-                  const activeAlert = extreme >= 90 || Math.abs(report.woDiffChange) >= 100_000;
+                  const alert = getWatchAlerts([report], [report.code], watchlistSettings)[0];
+                  const activeAlert = Boolean(alert && alert.reasons.length);
                   return (
                     <button key={report.code} type="button" onClick={() => setCode(report.code)} className="flex items-center justify-between rounded-lg bg-bg-elevated p-3 text-left shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]">
                       <span>
                         <span className="block font-mono text-sm font-medium text-fg">{report.symbol}</span>
-                        <span className="mt-1 block text-xs text-muted">{activeAlert ? "Threshold crossed" : "No new alert"}</span>
+                        <span className="mt-1 block text-xs text-muted">{activeAlert ? alert.reasons[0] : "No new alert"}</span>
                       </span>
                       <span className={cn("size-2 rounded-full", activeAlert ? "bg-accent" : "bg-muted")} />
                     </button>
@@ -289,8 +256,6 @@ function Home() {
         onCodesChange={setWatchlistCodes}
         settings={watchlistSettings}
         onSettingsChange={setWatchlistSettings}
-        notificationPermission={notificationPermission}
-        onNotificationPermissionChange={setNotificationPermission}
       />
     </div>
   );

@@ -95,14 +95,21 @@ const explicitBaseURL = env("BETTER_AUTH_URL");
 // Explicit `string[]` (not a readonly tuple) — Better Auth's DynamicBaseURLConfig
 // requires a mutable `allowedHosts: string[]`.
 const previewAllowedHosts: string[] = [...PREVIEW_ALLOWED_HOSTS];
-// Local `npm run dev` (port 8080 contract). Browsers may send Origin as any of
-// these for the same server — trusting only `localhost` rejects `127.0.0.1` and
-// breaks email/password with "Invalid origin".
-const LOCAL_DEV_ORIGINS: string[] = [
-  "http://localhost:8080",
-  "http://127.0.0.1:8080",
-  "http://[::1]:8080",
-];
+// Local `npm run dev` (8080 contract, with the workspace temporarily using 8081
+// when 8080 is blocked by a local process). Browsers may send Origin as any of
+// these for the same server — trusting only one fixed port rejects the app's
+// current loopback origin and breaks email/password with "Invalid origin".
+export function resolveLocalDevOrigins(ports: number[] = [8080, 8081]): string[] {
+  const origins = new Set<string>();
+  for (const port of ports) {
+    origins.add(`http://localhost:${port}`);
+    origins.add(`http://127.0.0.1:${port}`);
+    origins.add(`http://[::1]:${port}`);
+  }
+  return [...origins];
+}
+
+const LOCAL_DEV_ORIGINS: string[] = resolveLocalDevOrigins();
 const baseURL = explicitBaseURL ?? {
   // Include loopback hosts so dynamic baseURL resolves for local email/password
   // (not only the preview wildcard).
@@ -119,15 +126,19 @@ const vercelOrigins = ["VERCEL_URL", "VERCEL_PROJECT_PRODUCTION_URL"]
   .map((key) => env(key))
   .filter((value): value is string => Boolean(value))
   .flatMap((value) => [value, `https://${value}`, `http://${value}`]);
-const trustedOrigins: string[] = [
-  ...(explicitBaseURL ? [explicitBaseURL] : []),
-  ...vercelOrigins,
-  // Host wildcards (matched against Origin's host)
-  ...previewAllowedHosts,
-  // Full-origin wildcards (matched against Origin)
-  ...previewAllowedHosts.flatMap((host) => [`https://${host}`, `http://${host}`]),
-  ...LOCAL_DEV_ORIGINS,
-];
+export function resolveTrustedOrigins(): string[] {
+  return [
+    ...(explicitBaseURL ? [explicitBaseURL] : []),
+    ...vercelOrigins,
+    // Host wildcards (matched against Origin's host)
+    ...previewAllowedHosts,
+    // Full-origin wildcards (matched against Origin)
+    ...previewAllowedHosts.flatMap((host) => [`https://${host}`, `http://${host}`]),
+    ...LOCAL_DEV_ORIGINS,
+  ];
+}
+
+const trustedOrigins: string[] = resolveTrustedOrigins();
 
 const databaseUrl = env("SUPABASE_DB_URL") ?? env("DATABASE_URL");
 

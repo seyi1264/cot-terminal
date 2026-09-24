@@ -18,6 +18,15 @@ import type {
 const AVG_WINDOW = 13;
 const FLOW_EPS = 80;
 
+export function isDistributionSetup(
+  woDiff: number,
+  nc: GroupSnapshot,
+  comm: GroupSnapshot,
+  retail: GroupSnapshot,
+): boolean {
+  return comm.net < 0 && nc.net > 0 && retail.net > 0 && woDiff > 0 && comm.index <= 35 && nc.index >= 65;
+}
+
 function num(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value !== "") {
@@ -351,8 +360,7 @@ function scoreReading(
   else if (woIndex <= 20) score -= 2;
   else if (woIndex <= 35) score -= 1;
 
-  const distributionTop =
-    comm.net < 0 && nc.net > 0 && retail.net > 0 && woDiff > 0 && comm.index <= 35 && nc.index >= 65;
+  const distributionTop = isDistributionSetup(woDiff, nc, comm, retail);
 
   if (distributionTop) {
     score -= 2;
@@ -439,6 +447,7 @@ function scoreReading(
   }
 
   score = Math.max(-10, Math.min(10, score));
+  if (distributionTop && score > 5) score = 5;
   let stance: Stance = "balanced";
   if (score >= 6) stance = "strong-bid";
   else if (score >= 3) stance = "bid";
@@ -508,9 +517,8 @@ function narrative(
     woIndex <= 35 ? "leaning offer versus the all-history range" :
     "mid-range — not an extreme";
 
-  const distributionSetup =
-    comm.net < 0 && nc.net > 0 && retail.net > 0 && woDiff > 0
-      ? "Commercials are short while large specs and retail are long, which is a classic distribution / top-risk setup: the market is being sold into speculative demand."
+  const distributionSetup = isDistributionSetup(woDiff, nc, comm, retail)
+      ? "Commercials are short while large specs and retail are long at historically stretched levels, which is a distribution / top-risk setup: the market may be selling into speculative demand."
       : "The positioning is not yet a clean distribution setup; the book remains mixed and needs chart confirmation.";
 
   const hedgeFundCycle =

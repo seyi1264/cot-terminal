@@ -7,6 +7,7 @@ import { analyzeMultiTimeframe, type MultiTimeframeRead } from "@/lib/cot/price-
 import { listThesisZones, type ThesisZone } from "@/lib/cot/zones.functions";
 import type { InstrumentReport } from "@/lib/cot/types";
 import {
+  isDistributionSetup,
   interpretOpenInterestContext,
   summarizeRetailDivergence,
 } from "@/lib/cot/white-oak";
@@ -89,7 +90,7 @@ function DetailBody({
   });
   const recent = useMemo(() => [...report.series].slice(-13).reverse(), [report.series]);
   const signalChecklist = useMemo(() => {
-    const distributionSetup = report.comm.net < 0 && report.noncomm.net > 0 && report.retail.net > 0 && report.woDiff > 0;
+    const distributionSetup = isDistributionSetup(report.woDiff, report.noncomm, report.comm, report.retail);
     const institutionalExit = report.noncomm.net > 0 && report.noncomm.dNet < 0 && report.oiChange < 0;
     const freshAccumulation = report.noncomm.net > 0 && report.noncomm.dNet > 0 && report.oiChange > 0;
     const dxyCorrelation = report.symbol === "DXY";
@@ -221,7 +222,7 @@ function DetailBody({
             </ul>
           </div>
 
-          {report.comm.net < 0 && report.noncomm.net > 0 && report.retail.net > 0 && report.woDiff > 0 ? (
+          {isDistributionSetup(report.woDiff, report.noncomm, report.comm, report.retail) ? (
             <div className="mt-4 rounded-lg border border-accent/55 bg-[#272118] p-4 text-sm leading-relaxed text-fg shadow-[0_0_0_1px_rgb(200_192_176_/_0.08)]">
               <span className="font-medium text-accent">Framework context:</span> this pattern can read as a
               distribution / top-risk setup when commercials are short while specs and retail are long.

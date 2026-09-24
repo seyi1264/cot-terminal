@@ -209,7 +209,6 @@ function DetailBody({
 
           <div className="mt-4 rounded-lg border border-border bg-bg p-3">
             <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Institutional signal checklist</p>
-                        <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">White Oak signal checklist</p>
             <ul className="mt-3 space-y-2">
               {signalChecklist.map((item) => (
                 <li key={item.label} className="flex items-start gap-2 text-sm text-fg">

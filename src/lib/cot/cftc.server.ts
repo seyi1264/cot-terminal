@@ -2,7 +2,7 @@ import { INSTRUMENTS } from "./instruments";
 import { analyzeBoard, lagNote } from "./white-oak";
 import type { CotBoard, CotRawRow } from "./types";
 
-const CFTC_URL = "https://publicreporting.cftc.gov/resource/6dca-aqww.json";
+const LEGACY_CFTC_URL = "https://publicreporting.cftc.gov/resource/6dca-aqww.json";
 const SELECT = [
   "cftc_contract_market_code",
   "report_date_as_yyyy_mm_dd",
@@ -66,7 +66,7 @@ function boardFromRows(rows: CotRawRow[]): CotBoard {
   return {
     asOf,
     fetchedAt: new Date().toISOString(),
-    source: "live",
+    source: "legacy",
     lagNote: lagNote(asOf || "the latest Tuesday"),
     instruments,
   };
@@ -75,7 +75,7 @@ function boardFromRows(rows: CotRawRow[]): CotBoard {
 async function fetchLive(): Promise<CotRawRow[]> {
   const codes = INSTRUMENTS.map((i) => `'${i.code}'`).join(",");
   const where = `cftc_contract_market_code in (${codes}) AND report_date_as_yyyy_mm_dd >= '${LOOKBACK_START}'`;
-  const url = new URL(CFTC_URL);
+  const url = new URL(LEGACY_CFTC_URL);
   url.searchParams.set("$select", SELECT);
   url.searchParams.set("$where", where);
   url.searchParams.set("$order", "report_date_as_yyyy_mm_dd DESC");

@@ -452,14 +452,14 @@ function buildTradingSignal(
   noncomm: GroupSnapshot,
   woDiff: number,
 ): InstrumentReport["tradingSignal"] {
-  const institutional = comm.net > 0 && comm.dNet > 0
+  const institutional = noncomm.net > 0 && noncomm.dNet > 0
     ? "BULLISH"
-    : comm.net < 0 && comm.dNet < 0
+    : noncomm.net < 0 && noncomm.dNet < 0
       ? "BEARISH"
       : "MIXED";
-  const speculators = noncomm.net > 0 && woDiff > 0
+  const speculators = comm.net < 0
     ? "BULLISH"
-    : noncomm.net < 0 && woDiff < 0
+    : comm.net > 0
       ? "BEARISH"
       : "MIXED";
   return {
@@ -615,14 +615,14 @@ function buildTriggerLogic(
   if (stance === "strong-bid") {
     return {
       label: "STRONG BID",
-      rule: "WO index > 75 AND commercial net is negative (hedging a rise) AND non-commercial net is positive (speculative long).",
+      rule: "WO index > 75 AND commercial net is negative (corporate hedging a rise) AND non-commercial net is positive (institutional long).",
       matched: strongBidMatched,
     };
   }
   if (stance === "strong-offer") {
     return {
       label: "STRONG OFFER",
-      rule: "WO index < 25 AND commercial net is positive (hedging a decline) AND non-commercial net is negative (speculative short).",
+      rule: "WO index < 25 AND commercial net is positive (corporate hedging a decline) AND non-commercial net is negative (institutional short).",
       matched: woIndex < 25 && comm.net > 0 && noncomm.net < 0,
     };
   }

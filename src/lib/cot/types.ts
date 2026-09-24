@@ -193,7 +193,7 @@ export type InstrumentReport = {
 export type CotBoard = {
   asOf: string;
   fetchedAt: string;
-  source: "live" | "unavailable";
+  source: "legacy" | "unavailable";
   lagNote: string;
   instruments: InstrumentReport[];
 };

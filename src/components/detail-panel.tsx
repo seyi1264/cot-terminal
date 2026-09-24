@@ -569,8 +569,8 @@ function TradingSignalPanel({
         </div>
       ) : null}
       <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-        <p className="rounded-md bg-bg/50 p-2 text-muted">Commercial/institutional flow: <strong className="text-fg">{signal.institutional}</strong></p>
-        <p className="rounded-md bg-bg/50 p-2 text-muted">Large-speculator direction: <strong className="text-fg">{signal.speculators}</strong></p>
+        <p className="rounded-md bg-bg/50 p-2 text-muted">Hedge funds / banks / institutions: <strong className="text-fg">{signal.institutional}</strong></p>
+        <p className="rounded-md bg-bg/50 p-2 text-muted">Corporate hedgers (inverse context): <strong className="text-fg">{signal.speculators}</strong></p>
       </div>
       <p className="mt-2 text-xs text-muted">
         {market.currentPrice !== null ? `Live price: ${market.currentPrice}` : "Live price: unavailable"}

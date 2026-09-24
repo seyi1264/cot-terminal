@@ -25,7 +25,8 @@ export function HowToRead({
           <div className="mt-5 space-y-4 text-sm leading-relaxed text-muted">
             <p>
               Legacy futures-only Commitments of Traders. Three books: non-commercials (large
-              specs), commercials (hedgers / banks), and non-reportable (retail).
+              specs: hedge funds, banks, and institutions; commercials: corporations hedging; and
+              non-reportable (retail).
             </p>
             <p>
               <strong className="font-medium text-fg">Non-commercials move price.</strong> They
@@ -33,13 +34,14 @@ export function HowToRead({
               cutting a winning book is profit taking.
             </p>
             <p>
-              <strong className="font-medium text-fg">Commercials hedge the opposite way.</strong>{" "}
-              If they expect a rise they sell futures to lock it in. White Oak therefore treats
-              commercial shorts as a bid confirmation, commercial longs as an offer confirmation.
+              <strong className="font-medium text-fg">Non-commercials are the directional book.</strong>{" "}
+              They are the hedge funds, banks, and institutions that move price. Commercials are
+              corporations hedging the opposite exposure: short hedging can confirm a bid, while
+              long hedging can confirm an offer.
             </p>
             <p>
               <strong className="font-medium text-fg">Difference = spec net − commercial net.</strong>{" "}
-              Two minuses make a plus: specs long and commercials short is a combined institutional
+              Two minuses make a plus: specs long and corporations short is a combined institutional
               bid. The all-history index (0–100) flags extremes; the 13-week average damps noise.
               When a book approaches its historical high or low, profit taking is the base case.
             </p>

@@ -138,8 +138,8 @@ function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <p className={cn("hidden rounded-full border px-3 py-1 font-mono text-[11px] sm:block", board.source === "live" ? "border-accent/35 bg-accent/10 text-accent" : "border-offer/40 bg-offer/10 text-offer")}>
-              Data as of {board.asOf ? formatDate(board.asOf) : "—"} · {board.source === "live" ? "published Friday" : "live feed unavailable · no cached data"}
+            <p className={cn("hidden rounded-full border px-3 py-1 font-mono text-[11px] sm:block", board.source === "legacy" ? "border-accent/35 bg-accent/10 text-accent" : "border-offer/40 bg-offer/10 text-offer")}>
+              Data as of {board.asOf ? formatDate(board.asOf) : "—"} · {board.source === "legacy" ? "legacy report, published Friday" : "legacy feed unavailable · no cached data"}
             </p>
             <Button variant="quiet" size="md" onClick={() => setGuideOpen(true)}>
               How to read
@@ -179,7 +179,7 @@ function Home() {
             ) : null}
           </div>
           <p className="mt-2 inline-flex rounded-full border border-accent/35 bg-accent/10 px-3 py-1 font-mono text-[11px] text-accent sm:hidden">
-            Data as of {board.asOf ? formatDate(board.asOf) : "—"} · {board.source === "live" ? "published Friday" : "live feed unavailable · no cached data"}
+            Data as of {board.asOf ? formatDate(board.asOf) : "—"} · {board.source === "legacy" ? "legacy report, published Friday" : "legacy feed unavailable · no cached data"}
           </p>
           <div className="mt-8">
             <PressureStrip instruments={board.instruments} onSelect={setCode} />

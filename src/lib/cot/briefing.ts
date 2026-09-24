@@ -25,7 +25,7 @@ export function buildBriefing(reports: InstrumentReport[], limit = 5): BriefingI
         };
       }
 
-      if (shift > 0) {
+      if (shift > 5_000) {
         return {
           report,
           kind: "shift" as const,

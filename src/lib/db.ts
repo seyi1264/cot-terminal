@@ -11,6 +11,9 @@ const rawDatabaseUrl =
     : undefined;
 const databaseUrl = rawDatabaseUrl && rawDatabaseUrl.length > 0 ? rawDatabaseUrl : undefined;
 
+/** Active backend: configured Postgres when available, otherwise PGLite. */
+export const dbSource: DbSource = databaseUrl ? "neon" : "pglite";
+
 /**
  * Minimal shared SQL surface, satisfied by both Neon and PGLite. Both the
  * tagged-template and `.query()` forms resolve to an array of row objects:

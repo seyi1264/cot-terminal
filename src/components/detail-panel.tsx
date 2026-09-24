@@ -90,13 +90,13 @@ function DetailBody({
   const recent = useMemo(() => [...report.series].slice(-13).reverse(), [report.series]);
   const signalChecklist = useMemo(() => {
     const distributionSetup = report.comm.net < 0 && report.noncomm.net > 0 && report.retail.net > 0 && report.woDiff > 0;
-    const commercialExit = report.comm.net < 0 && report.comm.dNet > 0 && report.oiChange < 0;
-    const freshAccumulation = report.comm.net > 0 && report.comm.dNet > 0 && report.oiChange > 0;
+    const institutionalExit = report.noncomm.net > 0 && report.noncomm.dNet < 0 && report.oiChange < 0;
+    const freshAccumulation = report.noncomm.net > 0 && report.noncomm.dNet > 0 && report.oiChange > 0;
     const dxyCorrelation = report.symbol === "DXY";
     return [
       { label: "Distribution setup", active: distributionSetup, detail: "Commercials short while specs and retail are long can frame a top-risk context." },
-      { label: "Commercial exit signal", active: commercialExit, detail: "Shorts shrinking with falling OI can signal early profit-taking / unwind risk." },
-      { label: "Fresh long accumulation", active: freshAccumulation, detail: "Rising OI with stronger commercial longs is a stronger conviction read than simple short covering." },
+      { label: "Institutional exit signal", active: institutionalExit, detail: "Large-spec longs shrinking with falling OI can signal profit-taking and an institutional unwind." },
+      { label: "Fresh institutional accumulation", active: freshAccumulation, detail: "Rising OI with stronger non-commercial longs confirms directional institutional conviction." },
       { label: "Macro correlation", active: dxyCorrelation, detail: "DXY weakness often aligns with EUR/USD, GBP/USD and gold strength, while USD/CHF and USD/JPY can soften." },
     ];
   }, [report]);
@@ -209,6 +209,7 @@ function DetailBody({
 
           <div className="mt-4 rounded-lg border border-border bg-bg p-3">
             <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Institutional signal checklist</p>
+                        <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">White Oak signal checklist</p>
             <ul className="mt-3 space-y-2">
               {signalChecklist.map((item) => (
                 <li key={item.label} className="flex items-start gap-2 text-sm text-fg">
@@ -383,7 +384,7 @@ function DetailBody({
           />
           <GroupStats
             title="Commercial"
-            subtitle="Hedgers — invert: shorts confirm a rise"
+            subtitle="Corporate hedgers — inverse context"
             snap={report.comm}
           />
           <GroupStats

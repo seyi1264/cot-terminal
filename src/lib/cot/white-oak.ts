@@ -371,12 +371,12 @@ function scoreReading(
     score -= 1;
   }
 
-  const strongerAccumulation = comm.net > 0 && comm.dNet > 0 && oiChange > 0 && nc.net > 0;
-  if (strongerAccumulation) {
+  const corporateLongHedgeExpansion = comm.net > 0 && comm.dNet > 0 && oiChange > 0 && nc.net < 0;
+  if (corporateLongHedgeExpansion) {
     flags.push(
-      "Fresh long accumulation is building with rising open interest — stronger than passive short covering",
+      "Corporate hedgers are adding longs with rising open interest while institutions are short — offer pressure is expanding",
     );
-    score += 1;
+    score -= 1;
   }
 
   if (comm.index <= 20) {
@@ -415,7 +415,7 @@ function scoreReading(
     flags.push("Commercial short covering is underway — early profit-taking rather than fresh bullish conviction");
   }
   if (comm.flow.kind === "accum-long" && oiChange > 0) {
-    flags.push("Commercial longs are being added with rising open interest — stronger accumulation than simple short covering");
+    flags.push("Corporate hedgers are adding longs with rising open interest — inverse offer pressure is strengthening");
   }
 
   if (nc.flow.kind === "profit-long" && nc.index >= 70) {

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { createThesisZone, listThesisZones, removeThesisZone, updateThesisZone, type ThesisZone } from "@/lib/cot/zones.functions";
 import type { InstrumentReport } from "@/lib/cot/types";
 import { Button } from "@/components/ui/button";
+import { stanceLabel } from "@/lib/cot/format";
 import { cn } from "@/lib/utils";
 
 type Direction = ThesisZone["direction"];
@@ -33,6 +34,7 @@ export function ZoneEditor({ report }: { report: InstrumentReport }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const cotZoneSignal = getCotZoneSignal(report, form.direction);
 
   useEffect(() => {
     let active = true;
@@ -113,7 +115,13 @@ export function ZoneEditor({ report }: { report: InstrumentReport }) {
           {loading ? <span className="text-xs text-subtle">Loading</span> : null}
         </div>
 
-        {zones.length ? <div className="mt-4 space-y-2"><p className="text-[11px] uppercase tracking-[0.12em] text-subtle">{zones.length} saved zone{zones.length === 1 ? "" : "s"} for this instrument · no app limit</p>{zones.map((zone) => <div key={zone.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-bg-elevated p-3"><div><p className="text-xs font-medium uppercase tracking-[0.1em] text-fg">{zone.direction} · {zone.timeframe} · {zone.quality}</p><p className="mt-1 font-mono text-xs tabular text-muted">{zone.lowerPrice} – {zone.upperPrice} · invalidation {zone.invalidationPrice}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => editZone(zone)} className="text-xs text-accent hover:text-fg">Edit</button><button type="button" onClick={() => void remove(zone)} className="text-xs text-offer hover:text-fg">Remove</button></div></div>)}</div> : null}
+        <div className={cn("mt-4 rounded-md border p-3", cotZoneSignal.tone === "support" ? "border-bid/35 bg-bid/5" : cotZoneSignal.tone === "conflict" ? "border-offer/35 bg-offer/5" : "border-border bg-bg-elevated")}>
+          <p className="text-[11px] uppercase tracking-[0.12em] text-subtle">COT zone signal</p>
+          <p className="mt-1 text-sm font-medium text-fg">{cotZoneSignal.headline}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted">{cotZoneSignal.detail}</p>
+        </div>
+
+        {zones.length ? <div className="mt-4 space-y-2"><p className="text-[11px] uppercase tracking-[0.12em] text-subtle">{zones.length} saved zone{zones.length === 1 ? "" : "s"} for this instrument · no app limit</p>{zones.map((zone) => { const zoneSignal = getCotZoneSignal(report, zone.direction); return <div key={zone.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-bg-elevated p-3"><div><p className="text-xs font-medium uppercase tracking-[0.1em] text-fg">{zone.direction} · {zone.timeframe} · {zone.quality}</p><p className="mt-1 text-xs font-medium text-fg">{zoneSignal.headline}</p><p className="mt-1 font-mono text-xs tabular text-muted">{zone.lowerPrice} – {zone.upperPrice} · invalidation {zone.invalidationPrice}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => editZone(zone)} className="text-xs text-accent hover:text-fg">Edit</button><button type="button" onClick={() => void remove(zone)} className="text-xs text-offer hover:text-fg">Remove</button></div></div>; })}</div> : null}
 
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <Field label="Direction"><select value={form.direction} onChange={(event) => updateForm("direction", event.target.value as Direction)} className="input"><option value="demand">Demand</option><option value="supply">Supply</option></select></Field>
@@ -138,6 +146,37 @@ function zoneErrorMessage(error: unknown, operation: "load" | "save") {
   return operation === "load"
     ? "Zone storage is unavailable until the account database is ready."
     : "The zone could not be saved. Check the account database connection.";
+}
+
+function getCotZoneSignal(report: InstrumentReport, direction: Direction): {
+  headline: string;
+  detail: string;
+  tone: "support" | "conflict" | "neutral";
+} {
+  const stance = stanceLabel(report.stance);
+  const supportsDemand = direction === "demand" && (report.stance === "bid" || report.stance === "strong-bid");
+  const supportsSupply = direction === "supply" && (report.stance === "offer" || report.stance === "strong-offer");
+  const conflictsWithDemand = direction === "demand" && (report.stance === "offer" || report.stance === "strong-offer");
+  const conflictsWithSupply = direction === "supply" && (report.stance === "bid" || report.stance === "strong-bid");
+  if (supportsDemand || supportsSupply) {
+    return {
+      headline: `${stance} COT supports ${direction} zones`,
+      detail: `White Oak positioning is ${stance.toLowerCase()} with a ${report.woDiff >= 0 ? "positive" : "negative"} difference. Wait for price to reach ${direction} and confirm before entry.`,
+      tone: "support",
+    };
+  }
+  if (conflictsWithDemand || conflictsWithSupply) {
+    return {
+      headline: `${stance} COT conflicts with ${direction} zones`,
+      detail: `The White Oak positioning leans the opposite way from this ${direction} thesis. Treat the zone as lower-conviction until price and COT alignment improve.`,
+      tone: "conflict",
+    };
+  }
+  return {
+    headline: "Balanced COT — zone confirmation required",
+    detail: "White Oak positioning is mixed, so neither demand nor supply has a clear COT advantage. Wait for stronger positioning and price confirmation.",
+    tone: "neutral",
+  };
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

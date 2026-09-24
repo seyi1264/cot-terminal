@@ -95,7 +95,7 @@ function DetailBody({
     const freshAccumulation = report.noncomm.net > 0 && report.noncomm.dNet > 0 && report.oiChange > 0;
     const dxyCorrelation = report.symbol === "DXY";
     return [
-      { label: "Distribution setup", active: distributionSetup, detail: "Commercials short while specs and retail are long can frame a top-risk context." },
+      { label: "Distribution setup", active: distributionSetup, detail: "Commercials and large specs are historically stretched while retail remains long; this is a top-risk context, not fresh accumulation." },
       { label: "Institutional exit signal", active: institutionalExit, detail: "Large-spec longs shrinking with falling OI can signal profit-taking and an institutional unwind." },
       { label: "Fresh institutional accumulation", active: freshAccumulation, detail: "Rising OI with stronger non-commercial longs confirms directional institutional conviction." },
       { label: "Macro correlation", active: dxyCorrelation, detail: "DXY weakness often aligns with EUR/USD, GBP/USD and gold strength, while USD/CHF and USD/JPY can soften." },
@@ -224,7 +224,7 @@ function DetailBody({
 
           {isDistributionSetup(report.woDiff, report.noncomm, report.comm, report.retail) ? (
             <div className="mt-4 rounded-lg border border-accent/55 bg-[#272118] p-4 text-sm leading-relaxed text-fg shadow-[0_0_0_1px_rgb(200_192_176_/_0.08)]">
-              <span className="font-medium text-accent">Framework context:</span> this pattern can read as a
+              <span className="font-medium text-accent">Framework context:</span> this historically stretched pattern can read as a
               distribution / top-risk setup when commercials are short while specs and retail are long.
               It is a useful context flag, not a certainty trigger by itself.
             </div>

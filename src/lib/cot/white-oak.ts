@@ -459,8 +459,10 @@ function scoreReading(
 function buildTradingSignal(
   comm: GroupSnapshot,
   noncomm: GroupSnapshot,
+  retail: GroupSnapshot,
   woDiff: number,
 ): InstrumentReport["tradingSignal"] {
+  const distribution = isDistributionSetup(woDiff, { ...noncomm }, comm, retail);
   const institutional = noncomm.net > 0 && noncomm.dNet > 0
     ? "BULLISH"
     : noncomm.net < 0 && noncomm.dNet < 0
@@ -473,8 +475,10 @@ function buildTradingSignal(
       : "MIXED";
   return {
     action: "WAIT",
-    label: institutional === speculators && institutional !== "MIXED" ? "COT context aligned" : institutional === "MIXED" || speculators === "MIXED" ? "Insufficient confirmation" : "COT context conflicted",
-    summary: institutional === speculators && institutional !== "MIXED"
+    label: distribution ? "COT context conflicted" : institutional === speculators && institutional !== "MIXED" ? "COT context aligned" : institutional === "MIXED" || speculators === "MIXED" ? "Insufficient confirmation" : "COT context conflicted",
+    summary: distribution
+      ? "White Oak positioning is historically stretched into a distribution / top-risk state. Treat the bullish difference as late-cycle context, not fresh accumulation, and wait for price and zone confirmation."
+      : institutional === speculators && institutional !== "MIXED"
       ? "COT positioning provides a directional storyline, but White Oak methodology still requires price to reach the institutional supply or demand zone and confirm before entry."
       : "COT positioning is conflicted or incomplete. Follow the storyline, then wait for price and an institutional supply or demand zone to confirm before entry.",
     institutional,
@@ -563,7 +567,7 @@ function buildStoryline(
     "stable";
 
   const cycle =
-    comm.net < 0 && nc.net > 0 && retail.net > 0 && woDiff > 0 ? "distribution" :
+    isDistributionSetup(woDiff, nc, comm, retail) ? "distribution" :
     comm.net > 0 && nc.net > 0 && woDiff > 0 ? "early accumulation" :
     nc.net > 0 && comm.net < 0 ? "mid-expansion" :
     comm.net > 0 && nc.net < 0 ? "exhaustion" :
@@ -814,7 +818,7 @@ export function analyzeInstrument(
     latest.oiChange,
     series,
   );
-  const tradingSignal = buildTradingSignal(comm, nc, woDiff);
+  const tradingSignal = buildTradingSignal(comm, nc, retail, woDiff);
   const { headline, body } = narrative(def, nc, comm, retail, woDiff, woIndex, stance, flags);
   const storyline = buildStoryline(woDiff, woDiffChange, nc, comm, retail, stance);
   const zone = buildZoneRead(woDiff, woIndex, stance);

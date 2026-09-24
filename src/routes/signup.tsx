@@ -19,7 +19,10 @@ function Signup() {
     try {
       const result = await authClient.signUp.email({ name, email, password });
       if (result.error) setMessage(result.error.message ?? "Account creation failed.");
-      else await navigate({ to: "/", search: { code: undefined, cat: undefined } });
+      else {
+        await authClient.getSession();
+        await navigate({ to: "/", search: { code: undefined, cat: undefined } });
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Account creation failed. Check the account database configuration.");
     }

@@ -20,7 +20,10 @@ function Login() {
     try {
       const result = await authClient.signIn.email({ email, password });
       if (result.error) setMessage(result.error.message ?? "Sign-in failed.");
-      else await navigate({ to: "/", search: { code: undefined, cat: undefined } });
+      else {
+        await authClient.getSession();
+        await navigate({ to: "/", search: { code: undefined, cat: undefined } });
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Sign-in failed. Check the account database configuration.");
     }

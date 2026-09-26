@@ -3,6 +3,7 @@ import type { InstrumentReport } from "@/lib/cot/types";
 import { IndexBar } from "@/components/index-bar";
 import { Sparkline } from "@/components/sparkline";
 import { StanceChip } from "@/components/stance-chip";
+import { stanceInPairQuote } from "@/lib/cot/instruments";
 import { cn } from "@/lib/utils";
 
 export function InstrumentCard({
@@ -40,7 +41,7 @@ export function InstrumentCard({
           </p>
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          <StanceChip stance={report.stance} />
+          <StanceChip stance={stanceInPairQuote(report.pair, report.stance)} />
           <span className="text-[9px] font-semibold tracking-[0.12em] text-subtle">{report.thesisStatus}</span>
         </div>
       </div>

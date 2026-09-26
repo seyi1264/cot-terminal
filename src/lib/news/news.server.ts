@@ -1,4 +1,5 @@
 import type { Stance } from "@/lib/cot/types";
+import { stanceInPairQuote } from "../cot/instruments.ts";
 import { normalizeSentiment, scoreAlignment, summarizeAlignment } from "./alignment.ts";
 import type { NewsStory } from "./types";
 const INSTRUMENT_KEYWORDS: Record<string, string[]> = {
@@ -26,7 +27,10 @@ const INSTRUMENT_KEYWORDS: Record<string, string[]> = {
 export function newsMatchesInstrument(title: string, symbol: string): boolean {
   const haystack = title.toLowerCase();
   const keys = INSTRUMENT_KEYWORDS[symbol] ?? [symbol.toLowerCase()];
-  return keys.some((keyword) => haystack.includes(keyword.toLowerCase()));
+  return keys.some((keyword) => {
+    const escaped = keyword.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`, "i").test(haystack);
+  });
 }
 const GOOGLE_NEWS_URL = "https://news.google.com/rss/search?q=";
 
@@ -122,7 +126,7 @@ export async function fetchMarketNews(symbol: string, stance: Stance): Promise<N
           return null;
         }
         const sentiment = normalizeSentiment(text);
-        const alignment = scoreAlignment(sentiment, stance);
+        const alignment = scoreAlignment(sentiment, stanceInPairQuote(symbol, stance));
 
         return {
           title: title || "Market headline",

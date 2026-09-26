@@ -20,7 +20,7 @@ export function buildBriefing(reports: InstrumentReport[], limit = 5): BriefingI
           report,
           kind: "extreme" as const,
           label: "Extreme reading",
-          detail: `${report.woIndex >= 50 ? "Bid" : "Offer"}-side positioning is at ${extreme.toFixed(0)}% of its historical range.`,
+          detail: `WO difference is at the ${report.woIndex >= 50 ? "upper" : "lower"} end of its historical range (${report.woIndex.toFixed(0)}th percentile).`,
           magnitude: extreme + shift / 100_000,
         };
       }

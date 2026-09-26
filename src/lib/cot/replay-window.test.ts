@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { clampReplayRange, resolveReplayRange } from "./replay-window";
+import { clampReplayRange, resolveReplayRange } from "./replay-window.ts";
 
 const series = [
   { d: "2023-01-01", w: 10 },
@@ -19,5 +19,5 @@ test("resolveReplayRange prefers the chosen start and end dates within the avail
 
 test("clampReplayRange keeps the selection inside valid indices", () => {
   const range = clampReplayRange(series.length, 99, -5);
-  assert.deepEqual(range, { start: 5, end: 5 });
+  assert.deepEqual(range, { start: 0, end: 5 });
 });

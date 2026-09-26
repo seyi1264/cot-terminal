@@ -456,7 +456,7 @@ test("names the install page from host slug", () => {
 
 test("rejects hosts that are not plain slugs", () => {
   assert.equal(appNameFromHost("<script>alert(1)</script>"), "COT Terminal");
-  assert.equal(appNameFromHost('\"><img src=x onerror=1>.grok.me'), "COT Terminal");
+  assert.equal(appNameFromHost('"><img src=x onerror=1>.grok.me'), "COT Terminal");
 });
 
 test("renders install page markup", () => {

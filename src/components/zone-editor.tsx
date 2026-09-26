@@ -3,6 +3,8 @@ import { createThesisZone, listThesisZones, removeThesisZone, updateThesisZone, 
 import type { InstrumentReport } from "@/lib/cot/types";
 import { Button } from "@/components/ui/button";
 import { stanceLabel } from "@/lib/cot/format";
+import { doesStanceSupportZone, stanceInPairQuote } from "@/lib/cot/instruments";
+import { validateZonePrices } from "@/lib/cot/zone-validation";
 import { cn } from "@/lib/utils";
 
 type Direction = ThesisZone["direction"];
@@ -70,11 +72,20 @@ export function ZoneEditor({ report }: { report: InstrumentReport }) {
   }
 
   async function save() {
+    if ([form.lowerPrice, form.upperPrice, form.invalidationPrice].some((value) => value.trim() === "")) {
+      setMessage("Enter lower, upper, and invalidation prices.");
+      return;
+    }
     const lowerPrice = Number(form.lowerPrice);
     const upperPrice = Number(form.upperPrice);
     const invalidationPrice = Number(form.invalidationPrice);
-    if (![lowerPrice, upperPrice, invalidationPrice].every(Number.isFinite) || upperPrice < lowerPrice) {
-      setMessage("Enter numeric prices with upper price at or above lower price.");
+    if (![lowerPrice, upperPrice, invalidationPrice].every((value) => Number.isFinite(value) && value >= 0)) {
+      setMessage("Enter finite, non-negative prices.");
+      return;
+    }
+    const validationError = validateZonePrices({ direction: form.direction, lowerPrice, upperPrice, invalidationPrice });
+    if (validationError) {
+      setMessage(validationError.message);
       return;
     }
     setSaving(true);
@@ -153,19 +164,16 @@ function getCotZoneSignal(report: InstrumentReport, direction: Direction): {
   detail: string;
   tone: "support" | "conflict" | "neutral";
 } {
-  const stance = stanceLabel(report.stance);
-  const supportsDemand = direction === "demand" && (report.stance === "bid" || report.stance === "strong-bid");
-  const supportsSupply = direction === "supply" && (report.stance === "offer" || report.stance === "strong-offer");
-  const conflictsWithDemand = direction === "demand" && (report.stance === "offer" || report.stance === "strong-offer");
-  const conflictsWithSupply = direction === "supply" && (report.stance === "bid" || report.stance === "strong-bid");
-  if (supportsDemand || supportsSupply) {
+  const pairStance = stanceInPairQuote(report.pair, report.stance);
+  const stance = stanceLabel(pairStance);
+  if (doesStanceSupportZone(report.pair, report.stance, direction)) {
     return {
       headline: `${stance} COT supports ${direction} zones`,
-      detail: `White Oak positioning is ${stance.toLowerCase()} with a ${report.woDiff >= 0 ? "positive" : "negative"} difference. Wait for price to reach ${direction} and confirm before entry.`,
+      detail: `White Oak positioning is ${stance.toLowerCase()} for ${report.pair}; the raw WO difference is ${report.woDiff >= 0 ? "positive" : "negative"}. Wait for price to reach ${direction} and confirm before entry.`,
       tone: "support",
     };
   }
-  if (conflictsWithDemand || conflictsWithSupply) {
+  if (pairStance !== "balanced") {
     return {
       headline: `${stance} COT conflicts with ${direction} zones`,
       detail: `The White Oak positioning leans the opposite way from this ${direction} thesis. Treat the zone as lower-conviction until price and COT alignment improve.`,

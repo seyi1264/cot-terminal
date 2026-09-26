@@ -107,7 +107,7 @@ export type SeriesPoint = {
 
 export type MethodologyStoryline = {
   whoInControl: "buyers" | "sellers" | "mixed";
-  controlShift: "recent breakout" | "stable" | "transitioning";
+  controlShift: "large weekly positioning shift" | "stable" | "transitioning";
   cycle: "early accumulation" | "mid-expansion" | "distribution" | "exhaustion" | "mixed";
   confirmation: "confirms" | "contradicts" | "mixed";
   summary: string;
@@ -115,16 +115,16 @@ export type MethodologyStoryline = {
 
 export type ZoneRead = {
   label: string;
-  quality: "Fresh" | "Once-tested" | "Twice-tested" | "Stale";
+  quality: "Not assessed";
   proximity: string;
-  alignment: "Aligned" | "Diverging" | "Neutral";
+  alignment: "Not assessed";
   reminder: string;
 };
 
 export type TrendlineRead = {
-  status: "Bullish trendline intact" | "Broken" | "Neutral";
-  direction: "Bullish" | "Bearish" | "Neutral";
-  alignment: "Aligned" | "Diverging" | "Neutral";
+  status: "Not assessed";
+  direction: "Not assessed";
+  alignment: "Not assessed";
   summary: string;
 };
 

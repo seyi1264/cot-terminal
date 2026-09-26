@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import type { InstrumentReport } from "./types";
 import {
   DEFAULT_WATCHLIST_SETTINGS,
   getWatchAlerts,
@@ -8,8 +9,24 @@ import {
 } from "./watchlist.ts";
 
 test("readWatchlistSession falls back safely and prefers sessionStorage", () => {
-  const key = "oak-ledger-watchlist";
-  const previous = globalThis.sessionStorage.getItem(key);
+  const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const values = new Map<string, string>();
+  Object.defineProperty(globalThis, "sessionStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+      clear: () => values.clear(),
+    },
+  });
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { sessionStorage: globalThis.sessionStorage },
+  });
+
+  try {
   globalThis.sessionStorage.clear();
 
   assert.deepEqual(readWatchlistSession(), {
@@ -30,14 +47,16 @@ test("readWatchlistSession falls back safely and prefers sessionStorage", () => 
     },
   });
 
-  if (previous !== null) globalThis.sessionStorage.setItem(key, previous);
-  else globalThis.sessionStorage.removeItem(key);
+  } finally {
+    if (originalStorage) Object.defineProperty(globalThis, "sessionStorage", originalStorage);
+    else Reflect.deleteProperty(globalThis, "sessionStorage");
+    if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
+    else Reflect.deleteProperty(globalThis, "window");
+  }
 });
 
 test("watch alerts prioritize methodology confluence and trigger logic over raw threshold noise", () => {
-  const alerts = getWatchAlerts(
-    [
-      {
+  const report: InstrumentReport = {
         code: "ES",
         symbol: "ES",
         name: "S&P 500",
@@ -51,7 +70,7 @@ test("watch alerts prioritize methodology confluence and trigger logic over raw 
         comm: { long: 0, short: 0, spread: 0, net: 0, total: 0, pctOiLong: 0, pctOiShort: 0, dLong: 0, dShort: 0, dNet: 0, index: 0, avg13: 0, vs13: 0, minAll: 0, maxAll: 0, flow: { kind: "unchanged", label: "Quiet", woLabel: "Quiet" } },
         retail: { long: 0, short: 0, spread: 0, net: 0, total: 0, pctOiLong: 0, pctOiShort: 0, dLong: 0, dShort: 0, dNet: 0, index: 0, avg13: 0, vs13: 0, minAll: 0, maxAll: 0, flow: { kind: "unchanged", label: "Quiet", woLabel: "Quiet" } },
         woDiff: 42000,
-        woDiffChange: 26000,
+        woDiffChange: 26_000,
         woIndex: 82,
         woAvg13: 14000,
         stance: "bid",
@@ -63,18 +82,25 @@ test("watch alerts prioritize methodology confluence and trigger logic over raw 
         body: "Signal is building",
         flags: ["Strong bid"],
         series: [],
-        storyline: { whoInControl: "buyers", controlShift: "recent breakout", cycle: "mid-expansion", confirmation: "confirms", summary: "Breakout supported" },
+        storyline: { whoInControl: "buyers", controlShift: "large weekly positioning shift", cycle: "mid-expansion", confirmation: "confirms", summary: "Positioning shift supports the COT read" },
         confluence: { score: 5, total: 6, label: "HIGH CONFLUENCE", summary: "Strong confluence", checks: [] },
-      },
-    ],
+      };
+  const alerts = getWatchAlerts(
+    [report],
     ["ES"],
     DEFAULT_WATCHLIST_SETTINGS,
   );
 
   assert.equal(alerts.length, 1);
   assert.deepEqual(alerts[0]?.reasons, [
-    "Trigger logic matched",
+    "COT trigger conditions matched",
     "Methodology confluence is strong",
-    "Weekly shift +26,000",
   ]);
+
+  const lowerThresholdAlerts = getWatchAlerts(
+    [report],
+    ["ES"],
+    { ...DEFAULT_WATCHLIST_SETTINGS, shiftThreshold: 25_000 },
+  );
+  assert.ok(lowerThresholdAlerts[0]?.reasons.includes("Weekly shift +26,000"));
 });

@@ -3,10 +3,14 @@ import { Info, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { formatContracts, formatDate, formatSigned } from "@/lib/cot/format";
 import { getMarketPrice, getMarketTimeframes } from "@/lib/cot/price.functions";
+import { doesStanceSupportZone, stanceInPairQuote } from "@/lib/cot/instruments";
+import { chooseActiveZone } from "@/lib/cot/zone-selection";
 import { analyzeMultiTimeframe, type MultiTimeframeRead } from "@/lib/cot/price-action";
 import { listThesisZones, type ThesisZone } from "@/lib/cot/zones.functions";
 import type { InstrumentReport } from "@/lib/cot/types";
 import {
+  getCotPeriodPriceChange,
+  hasCommercialExitContext,
   isDistributionSetup,
   interpretOpenInterestContext,
   summarizeRetailDivergence,
@@ -46,6 +50,7 @@ type MarketConfirmation = {
   status: "loading" | "ready" | "unavailable";
   currentPrice: number | null;
   previousClose: number | null;
+  cotPeriodPriceChange: number | null;
   zone: ThesisZone | null;
   priceAction: MultiTimeframeRead | null;
 };
@@ -85,20 +90,19 @@ function DetailBody({
     status: "loading",
     currentPrice: null,
     previousClose: null,
+    cotPeriodPriceChange: null,
     zone: null,
     priceAction: null,
   });
   const recent = useMemo(() => [...report.series].slice(-13).reverse(), [report.series]);
   const signalChecklist = useMemo(() => {
     const distributionSetup = isDistributionSetup(report.woDiff, report.noncomm, report.comm, report.retail);
-    const institutionalExit = report.noncomm.net > 0 && report.noncomm.dNet < 0 && report.oiChange < 0;
-    const freshAccumulation = report.noncomm.net > 0 && report.noncomm.dNet > 0 && report.oiChange > 0;
-    const dxyCorrelation = report.symbol === "DXY";
+    const commercialExit = hasCommercialExitContext(report.comm, report.woDiff, report.oiChange, report.series);
+    const freshAccumulation = report.noncomm.net > 0 && report.noncomm.flow.kind === "accum-long" && report.oiChange > 0;
     return [
-      { label: "Distribution setup", active: distributionSetup, detail: "Commercials and large specs are historically stretched while retail remains long; this is a top-risk context, not fresh accumulation." },
-      { label: "Institutional exit signal", active: institutionalExit, detail: "Large-spec longs shrinking with falling OI can signal profit-taking and an institutional unwind." },
-      { label: "Fresh institutional accumulation", active: freshAccumulation, detail: "Rising OI with stronger non-commercial longs confirms directional institutional conviction." },
-      { label: "Macro correlation", active: dxyCorrelation, detail: "DXY weakness often aligns with EUR/USD, GBP/USD and gold strength, while USD/CHF and USD/JPY can soften." },
+      { label: "Distribution setup", active: distributionSetup, detail: "Commercial and large-spec books are stretched while retail remains net long; this is top-risk context, not a certainty trigger." },
+      { label: "Commercial unwind context", active: commercialExit, detail: "Commercial net shorts are shrinking as WO difference rolls off a recent peak and OI contracts. Price-near-high and chart confirmation are not assessed here." },
+      { label: "Fresh large-spec accumulation", active: freshAccumulation, detail: "Large specs are adding longs with expanding OI: a COT accumulation pattern, not price confirmation." },
     ];
   }, [report]);
 
@@ -106,19 +110,19 @@ function DetailBody({
     () =>
       interpretOpenInterestContext({
         oiChange: report.oiChange,
-        priceChange: report.woDiffChange,
+        cotPeriodPriceChange: marketConfirmation.cotPeriodPriceChange,
         commercialNet: report.comm.net,
         woDiff: report.woDiff,
       }),
-    [report.comm.net, report.oiChange, report.woDiff, report.woDiffChange],
+    [marketConfirmation.cotPeriodPriceChange, report.comm.net, report.oiChange, report.woDiff],
   );
 
   const retailContext = useMemo(
     () =>
       summarizeRetailDivergence({
         retailNet: report.retail.net,
+        retailIndex: report.retail.index,
         woDiff: report.woDiff,
-        retailExtreme: Math.max(report.retail.index, 100 - report.retail.index),
         stance: report.stance,
       }),
     [report.retail.index, report.retail.net, report.stance, report.woDiff],
@@ -135,7 +139,7 @@ function DetailBody({
   useEffect(() => {
     let active = true;
     const symbol = PRICE_SYMBOLS[report.pair];
-    setMarketConfirmation({ status: "loading", currentPrice: null, previousClose: null, zone: null, priceAction: null });
+    setMarketConfirmation({ status: "loading", currentPrice: null, previousClose: null, cotPeriodPriceChange: null, zone: null, priceAction: null });
     if (!symbol) {
       setMarketConfirmation((current) => ({ ...current, status: "unavailable" }));
       return () => { active = false; };
@@ -146,19 +150,29 @@ function DetailBody({
       listThesisZones().catch(() => [] as ThesisZone[]),
     ]).then(([price, timeframes, zones]) => {
       if (!active) return;
-      const currentZone = zones.find((zone) => zone.instrumentCode === report.code && zone.active && zone.quality !== "removed") ?? null;
+      const currentZone = chooseActiveZone(
+        zones,
+        report.code,
+        price.close,
+        (direction) => doesStanceSupportZone(report.pair, report.stance, direction),
+      );
       setMarketConfirmation({
         status: "ready",
         currentPrice: price.close,
         previousClose: timeframes.daily.at(-2)?.close ?? null,
+        cotPeriodPriceChange: getCotPeriodPriceChange(
+          timeframes.daily,
+          report.series.at(-2)?.d,
+          report.asOf,
+        ),
         zone: currentZone,
         priceAction: analyzeMultiTimeframe(timeframes),
       });
     }).catch(() => {
-      if (active) setMarketConfirmation({ status: "unavailable", currentPrice: null, previousClose: null, zone: null, priceAction: null });
+      if (active) setMarketConfirmation({ status: "unavailable", currentPrice: null, previousClose: null, cotPeriodPriceChange: null, zone: null, priceAction: null });
     });
     return () => { active = false; };
-  }, [report.code, report.pair]);
+  }, [report.asOf, report.code, report.pair, report.series, report.stance]);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -175,7 +189,7 @@ function DetailBody({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <StanceChip stance={report.stance} />
+          <StanceChip stance={stanceInPairQuote(report.pair, report.stance)} />
           <Button variant="quiet" size="icon" onClick={onClose} aria-label="Close">
             <X className="size-5" />
           </Button>
@@ -197,11 +211,11 @@ function DetailBody({
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em]">Trigger logic: {report.triggerLogic.label}</p>
             </div>
             <p className="mt-2 text-sm font-medium leading-relaxed text-fg">{report.triggerLogic.rule}</p>
-            <p className="mt-2 text-xs text-muted">{report.triggerLogic.matched ? "All listed conditions are currently present in the report." : "The directional label is supported by the wider score; this exact trigger is not fully matched yet."}</p>
+            <p className="mt-2 text-xs text-muted">{report.triggerLogic.matched ? "The COT conditions are present; confirm price at a mapped chart zone before entry." : "The directional label is not a complete trigger; price and a mapped chart zone still require confirmation."}</p>
           </div>
         </section>
 
-        <TradingSignalPanel signal={report.tradingSignal} market={marketConfirmation} />
+        <TradingSignalPanel signal={report.tradingSignal} market={marketConfirmation} pair={report.pair} stance={report.stance} />
 
         <section>
           <p className="text-[11px] uppercase tracking-wide text-subtle">White Oak reading</p>
@@ -259,13 +273,11 @@ function DetailBody({
             title="Open interest read"
             tone={oiContext.tone}
             label={oiContext.label}
-            confidence={oiContext.confidence}
           />
           <DecisionCard
             title="Retail divergence"
             tone={retailContext.tone}
             label={retailContext.label}
-            confidence={retailContext.confidence}
           />
         </section>
 
@@ -305,7 +317,7 @@ function DetailBody({
             ) : null}
             {pressure ? (
               <div className="rounded-lg border border-border bg-bg p-3">
-                <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Pressure</p>
+                <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">COT pressure</p>
                 <p className="mt-2 font-medium text-fg">{pressure.state}</p>
                 <p className="mt-2 text-xs text-fg">Cross-reference: {pressure.crossReference}</p>
                 <p className="mt-2 text-xs leading-relaxed text-muted">{pressure.alert}</p>
@@ -351,7 +363,7 @@ function DetailBody({
               </div>
               <div className="text-right">
                 <p className="font-mono text-2xl text-fg">{confluence.score}/{confluence.total}</p>
-                <p className="text-[10px] uppercase tracking-[0.12em] text-muted">Confirmations stacked</p>
+                <p className="text-[10px] uppercase tracking-[0.12em] text-muted">COT factors active</p>
               </div>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-muted">{confluence.summary}</p>
@@ -367,7 +379,7 @@ function DetailBody({
 
         {report.historical ? (
           <section className="rounded-lg border border-border bg-bg p-4">
-            <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Historical setup performance</p>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Historical positioning context</p>
             <p className="mt-2 font-medium text-fg">{report.historical.label}</p>
             <p className="mt-2 text-sm text-fg">{report.historical.conviction}</p>
             <p className="mt-2 text-sm leading-relaxed text-muted">{report.historical.summary}</p>
@@ -445,19 +457,19 @@ function DetailBody({
 }
 
 function SynthesisPanel({ report }: { report: InstrumentReport }) {
-  const directional = report.stance === "bid" || report.stance === "strong-bid";
+  const pairStance = stanceInPairQuote(report.pair, report.stance);
+  const directional = pairStance === "bid" || pairStance === "strong-bid";
+  const bearish = pairStance === "offer" || pairStance === "strong-offer";
   const watchFor = directional
-    ? `A reaction from the ${report.zone?.label.toLowerCase() ?? "demand zone"}, followed by ${report.trendline?.direction.toLowerCase() ?? "bullish"} alignment on the entry timeframe.`
-    : report.stance === "offer" || report.stance === "strong-offer"
-      ? `A rejection from the ${report.zone?.label.toLowerCase() ?? "supply zone"}, followed by bearish alignment on the entry timeframe.`
+    ? `A reaction from a trader-mapped demand zone, followed by bullish alignment on the entry timeframe. COT context: ${report.zone?.label.toLowerCase() ?? "not assessed"}.`
+    : bearish
+      ? `A rejection from a trader-mapped supply zone, followed by bearish alignment on the entry timeframe. COT context: ${report.zone?.label.toLowerCase() ?? "not assessed"}.`
       : "A fresh supply or demand break that moves the positioning read out of balance.";
-  const invalidate = report.zone?.quality === "Stale"
-    ? "The current zone is already stale; wait for a new structural zone before acting."
-    : directional
-      ? "A daily close through demand, pressure turning bearish, or the institutional book unwinding its bid."
-      : report.stance === "offer" || report.stance === "strong-offer"
-        ? "A daily close through supply, pressure turning bullish, or the institutional book unwinding its offer."
-        : "No directional trigger appears; the thesis remains a wait state rather than a trade.";
+  const invalidate = directional
+    ? "A close through the trader-marked demand-zone invalidation, or the large-spec positioning behind the pair bias unwinding."
+    : bearish
+      ? "A close through the trader-marked supply-zone invalidation, or the large-spec positioning behind the pair bias unwinding."
+      : "No directional trigger appears; the thesis remains a wait state rather than a trade.";
 
   return (
     <section className="rounded-lg border border-accent/55 bg-[#272118] p-4 shadow-[0_0_0_1px_rgb(200_192_176_/_0.08)]">
@@ -481,12 +493,10 @@ function DecisionCard({
   title,
   tone,
   label,
-  confidence,
 }: {
   title: string;
   tone: "strong-bid" | "bid" | "cautious" | "offer" | "strong-offer" | "neutral" | "warning" | "caution";
   label: string;
-  confidence: number;
 }) {
   const toneClass =
     tone === "strong-bid" || tone === "bid"
@@ -501,10 +511,7 @@ function DecisionCard({
 
   return (
     <div className={`rounded-lg border p-3 ${toneClass}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-[0.14em] text-current/80">{title}</p>
-        <span className="text-[10px] uppercase tracking-[0.12em] text-current/80">{confidence}%</span>
-      </div>
+      <p className="text-[11px] uppercase tracking-[0.14em] text-current/80">{title}</p>
       <p className="mt-2 text-sm leading-relaxed text-current">{label}</p>
     </div>
   );
@@ -513,9 +520,13 @@ function DecisionCard({
 function TradingSignalPanel({
   signal,
   market,
+  pair,
+  stance,
 }: {
   signal: InstrumentReport["tradingSignal"];
   market: MarketConfirmation;
+  pair: string;
+  stance: InstrumentReport["stance"];
 }) {
   const currentPrice = market.currentPrice;
   const previousClose = market.previousClose;
@@ -530,7 +541,8 @@ function TradingSignalPanel({
     && ((zoneDirection === "demand" && market.priceAction.direction === "Bullish")
       || (zoneDirection === "supply" && market.priceAction.direction === "Bearish"));
   const aligned = signal.label === "COT context aligned";
-  const action = aligned && priceConfirmed && priceActionConfirmed
+  const cotSupportsZone = zoneDirection !== undefined && doesStanceSupportZone(pair, stance, zoneDirection);
+  const action = aligned && cotSupportsZone && priceConfirmed && priceActionConfirmed
     ? zoneDirection === "demand" ? "LONG" : "SHORT"
     : "WAIT";
   const tone = action === "LONG" ? "border-bid/40 bg-bid/10" : action === "SHORT" ? "border-offer/40 bg-offer/10" : "border-accent/40 bg-accent/10";
@@ -541,6 +553,8 @@ function TradingSignalPanel({
       ? "Live price confirmation is unavailable. COT data is context only; no trade signal is issued."
       : !market.zone
         ? "No active saved supply or demand zone exists for this instrument. Save and validate a zone before considering an entry."
+        : !cotSupportsZone
+          ? `The saved ${market.zone.direction} zone conflicts with the current COT bias for ${pair}. Wait for alignment before considering an entry.`
         : !insideZone
           ? `Price is not inside the saved ${market.zone.direction} zone. Wait for price to reach the zone before looking for confirmation.`
           : !priceConfirmed
@@ -570,8 +584,8 @@ function TradingSignalPanel({
         </div>
       ) : null}
       <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-        <p className="rounded-md bg-bg/50 p-2 text-muted">Hedge funds / banks / institutions: <strong className="text-fg">{signal.institutional}</strong></p>
-        <p className="rounded-md bg-bg/50 p-2 text-muted">Corporate hedgers (inverse context): <strong className="text-fg">{signal.speculators}</strong></p>
+        <p className="rounded-md bg-bg/50 p-2 text-muted">Non-commercial futures book: <strong className="text-fg">{signal.institutional}</strong></p>
+        <p className="rounded-md bg-bg/50 p-2 text-muted">Commercial hedge context (inverse): <strong className="text-fg">{signal.speculators}</strong></p>
       </div>
       <p className="mt-2 text-xs text-muted">
         {market.currentPrice !== null ? `Live price: ${market.currentPrice}` : "Live price: unavailable"}

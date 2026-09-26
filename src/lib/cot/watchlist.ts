@@ -83,7 +83,7 @@ export function getWatchAlerts(
       const weeklyShift = Math.abs(report.woDiffChange);
 
       if (report.triggerLogic?.matched) {
-        reasons.push("Trigger logic matched");
+        reasons.push("COT trigger conditions matched");
       }
 
       const confluenceScore = report.confluence?.score ?? 0;
@@ -92,13 +92,12 @@ export function getWatchAlerts(
         reasons.push("Methodology confluence is strong");
       }
 
-      const probablyActiveShift = weeklyShift >= Math.min(10_000, settings.shiftThreshold * 0.25);
-      if (probablyActiveShift) {
+      if (weeklyShift >= settings.shiftThreshold) {
         reasons.push(`Weekly shift ${formatSignedNumber(report.woDiffChange)}`);
       }
 
       if (extreme >= settings.extremeThreshold) {
-        reasons.push(`Extreme ${extreme.toFixed(0)}% reading`);
+        reasons.push(`Extreme WO difference (${report.woIndex.toFixed(0)}th percentile)`);
       }
 
       return { code: report.code, symbol: report.symbol, reasons };

@@ -1,4 +1,5 @@
 import { formatSigned, stanceTone } from "@/lib/cot/format";
+import { stanceInPairQuote } from "@/lib/cot/instruments";
 import type { InstrumentReport } from "@/lib/cot/types";
 import { cn } from "@/lib/utils";
 
@@ -12,10 +13,10 @@ export function PressureStrip({
   return (
     <div
       className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      aria-label="Macro pressure by instrument"
+      aria-label="Quoted COT stance by instrument"
     >
       {instruments.map((row) => {
-        const tone = stanceTone(row.stance);
+        const tone = stanceTone(stanceInPairQuote(row.pair, row.stance));
         return (
           <button
             key={row.code}

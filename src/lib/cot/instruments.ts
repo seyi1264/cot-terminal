@@ -1,4 +1,4 @@
-import type { CotCategory } from "./types";
+import type { CotCategory, Stance } from "./types";
 
 export type InstrumentDef = {
   code: string;
@@ -47,3 +47,26 @@ export const CATEGORY_LABEL: Record<CotCategory | "all", string> = {
 
 /** Yen, franc, loonie, peso futures are quoted as the foreign currency. USDXXX pairs invert the bid language. */
 export const USD_BASE_PAIRS = new Set(["USDJPY", "USDCAD", "USDCHF", "USDMXN"]);
+
+export function stanceInPairQuote(pair: string, stance: Stance): Stance {
+  if (!USD_BASE_PAIRS.has(pair)) return stance;
+  const inverse: Record<Stance, Stance> = {
+    "strong-bid": "strong-offer",
+    bid: "offer",
+    balanced: "balanced",
+    offer: "bid",
+    "strong-offer": "strong-bid",
+  };
+  return inverse[stance];
+}
+
+export function doesStanceSupportZone(
+  pair: string,
+  stance: Stance,
+  direction: "demand" | "supply",
+): boolean {
+  const pairStance = stanceInPairQuote(pair, stance);
+  return direction === "demand"
+    ? pairStance === "bid" || pairStance === "strong-bid"
+    : pairStance === "offer" || pairStance === "strong-offer";
+}

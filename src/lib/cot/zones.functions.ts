@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { authMiddleware } from "@/lib/auth/middleware";
+import { validateZonePrices } from "./zone-validation";
 
 const directionSchema = z.enum(["demand", "supply"]);
 const timeframeSchema = z.enum(["monthly", "daily", "weekly", "4hr", "1hr", "6M"]);
@@ -16,9 +17,8 @@ const zoneInputSchema = z.object({
   quality: qualitySchema.default("fresh"),
   active: z.boolean().default(true),
 }).superRefine((value, context) => {
-  if (value.upperPrice < value.lowerPrice) {
-    context.addIssue({ code: "custom", path: ["upperPrice"], message: "Upper price must be at or above lower price." });
-  }
+  const error = validateZonePrices(value);
+  if (error) context.addIssue({ code: "custom", path: [error.field], message: error.message });
 });
 
 const idSchema = z.object({ id: z.string().uuid() });

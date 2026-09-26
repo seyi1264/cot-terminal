@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { getMarketPrice } from "@/lib/cot/price.functions";
 import { getMacroCalendar, type MacroEvent } from "@/lib/cot/macro.functions";
 import { formatSigned } from "@/lib/cot/format";
+import { stanceInPairQuote } from "@/lib/cot/instruments";
+import { summarizeExtremeReversion } from "@/lib/cot/positioning-history";
+import { countDirectionalReadings, DOLLAR_COMPLEX_CODES, dollarBiasFromCot } from "@/lib/cot/intermarket";
 import type { InstrumentReport } from "@/lib/cot/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -61,8 +64,8 @@ export function ResearchDesk({
   }
 
   function exportBoard() {
-    const header = "symbol,name,asOf,stance,woDiff,woIndex,weekChange";
-    const rows = reports.map((report) => [report.symbol, report.name, report.asOf, report.stance, report.woDiff, report.woIndex, report.woDiffChange]
+    const header = "symbol,name,asOf,pairStance,futuresStance,woDiff,woIndex,weekChange";
+    const rows = reports.map((report) => [report.symbol, report.name, report.asOf, stanceInPairQuote(report.pair, report.stance), report.stance, report.woDiff, report.woIndex, report.woDiffChange]
       .map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","));
     const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -115,51 +118,35 @@ export function ResearchDesk({
 
 function Confluence({ reports, onSelect }: { reports: InstrumentReport[]; onSelect: (code: string) => void }) {
   const groups = [
-    { title: "Dollar complex", codes: ["098662", "099741", "096742", "097741", "090741", "092741", "095741", "092741"] },
+    { title: "Dollar complex", codes: DOLLAR_COMPLEX_CODES },
     { title: "Growth and rates", codes: ["13874A", "209742", "043602", "020601"] },
     { title: "Commodity cycle", codes: ["088691", "084691", "085692", "067651", "023651"] },
   ];
-  const performance = buildPerformance(reports);
+  const positioning = summarizeExtremeReversion(reports);
   return (
     <div className="mt-5 space-y-3">
       <div className="grid gap-3 lg:grid-cols-3">
       {groups.map((group) => {
         const rows = group.codes.map((code) => reports.find((report) => report.code === code)).filter(Boolean) as InstrumentReport[];
-        const bid = rows.filter((report) => report.woDiff >= 0).length;
-        const tone = bid > rows.length / 2 ? "Bid" : bid < rows.length / 2 ? "Offer" : "Mixed";
+        const isDollarComplex = group.title === "Dollar complex";
+        const directions = countDirectionalReadings(rows.map((report) => isDollarComplex ? dollarBiasFromCot(report) : Math.sign(report.woDiff)));
+        const tone = isDollarComplex
+          ? directions.bias === "positive" ? "USD bid" : directions.bias === "negative" ? "USD offered" : "Mixed"
+          : directions.bias === "positive" ? "Bid" : directions.bias === "negative" ? "Offer" : "Mixed";
         return <button key={group.title} type="button" onClick={() => rows[0] && onSelect(rows[0].code)} className="rounded-lg bg-bg-elevated p-4 text-left shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]">
-          <div className="flex items-center justify-between"><span className="font-display text-lg text-fg">{group.title}</span><span className={cn("text-xs", tone === "Bid" ? "text-bid" : tone === "Offer" ? "text-offer" : "text-accent")}>{tone}</span></div>
-          <div className="mt-4 flex flex-wrap gap-1.5">{rows.map((report) => <span key={report.code} className={cn("rounded-full bg-bg px-2 py-1 font-mono text-[11px]", report.woDiff >= 0 ? "text-bid" : "text-offer")}>{report.symbol} {formatSigned(report.woDiff, 0)}</span>)}</div>
-          <p className="mt-4 text-xs text-muted">{bid} of {rows.length} markets carry a positive WO difference.</p>
+          <div className="flex items-center justify-between"><span className="font-display text-lg text-fg">{group.title}</span><span className={cn("text-xs", tone === "Bid" || tone === "USD bid" ? "text-bid" : tone === "Offer" || tone === "USD offered" ? "text-offer" : "text-accent")}>{tone}</span></div>
+          <div className="mt-4 flex flex-wrap gap-1.5">{rows.map((report) => { const direction = isDollarComplex ? dollarBiasFromCot(report) : Math.sign(report.woDiff); return <span key={report.code} className={cn("rounded-full bg-bg px-2 py-1 font-mono text-[11px]", direction > 0 ? "text-bid" : direction < 0 ? "text-offer" : "text-muted")}>{report.symbol} {formatSigned(report.woDiff, 0)}</span>; })}</div>
+          <p className="mt-4 text-xs text-muted">{isDollarComplex ? `${directions.positive} of ${rows.length} markets imply USD bid bias; ${directions.negative} imply USD offered.` : `${directions.positive} of ${rows.length} markets carry a positive WO difference.`}</p>
         </button>;
       })}
       </div>
       <div className="rounded-lg bg-bg-elevated p-4 shadow-[var(--shadow-border)]">
-        <div className="flex items-end justify-between gap-3"><div><p className="text-[11px] uppercase tracking-wide text-accent">Signal history</p><h3 className="mt-1 font-display text-lg text-fg">Did extremes follow through?</h3></div><span className="font-mono text-xs text-muted">{performance.samples} samples</span></div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-3"><Metric label="4-week follow-through" value={performance.samples ? `${performance.hitRate}%` : "—"} /><Metric label="Positive samples" value={performance.samples ? `${performance.hits}` : "—"} /><Metric label="Method" value="WO direction" /></div>
+        <div className="flex items-end justify-between gap-3"><div><p className="text-[11px] uppercase tracking-wide text-accent">Historical COT observations</p><h3 className="mt-1 font-display text-lg text-fg">Did extremes retrace?</h3></div><span className="font-mono text-xs text-muted">{positioning.samples} samples</span></div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3"><Metric label="4-week reversion" value={positioning.samples ? `${positioning.reversionRate}%` : "—"} /><Metric label="Reverted extremes" value={`${positioning.reversions}`} /><Metric label="Measured input" value="WO difference" /></div>
+        <p className="mt-3 text-xs text-subtle">COT positioning only; this is not a market-price backtest.</p>
       </div>
     </div>
   );
-}
-
-function buildPerformance(reports: InstrumentReport[]) {
-  let samples = 0;
-  let hits = 0;
-  for (const report of reports) {
-    for (let index = 0; index < report.series.length - 4; index += 1) {
-      const current = report.series[index]!.w;
-      const extreme = report.series.slice(0, index + 1).map((point) => point.w);
-      const max = Math.max(...extreme);
-      const min = Math.min(...extreme);
-      const percentile = max === min ? 50 : ((current - min) / (max - min)) * 100;
-      if (percentile >= 90 || percentile <= 10) {
-        samples += 1;
-        const future = report.series[index + 4]!.w - current;
-        if ((percentile >= 90 && future >= 0) || (percentile <= 10 && future <= 0)) hits += 1;
-      }
-    }
-  }
-  return { samples, hits, hitRate: samples ? Math.round((hits / samples) * 100) : 0 };
 }
 
 function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect }: { report: InstrumentReport; reports: InstrumentReport[]; index: number; onCodeChange: (code: string) => void; onIndexChange: (index: number) => void; onSelect: (code: string) => void }) {
@@ -169,7 +156,6 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
   const [range, setRange] = useState(() => resolveReplayRange(report.series, report.series[0]?.d, report.series.at(-1)?.d));
   const [priceHistory, setPriceHistory] = useState<Array<{ date: string; close: number }>>([]);
   const point = report.series[index] ?? report.series.at(-1);
-  const latest = report.series.at(-1);
   const [price, setPrice] = useState<{ close: number; date: string } | null>(null);
   const replaySeries = useMemo(
     () => report.series.slice(range.start, range.end + 1),
@@ -442,10 +428,10 @@ function Comparison({ reports, onSelect }: { reports: InstrumentReport[]; onSele
   const right = reports.find((report) => report.code === rightCode) ?? reports[1] ?? reports[0];
   if (!left || !right) return null;
   const aligned = Math.sign(left.woDiff) === Math.sign(right.woDiff) && left.woDiff !== 0;
-  const relationship = aligned ? "Aligned institutional direction" : "Diverging institutional direction";
+  const relationship = aligned ? "Same-sign COT readings" : "Different-sign COT readings";
   const context = aligned
-    ? `${left.symbol} and ${right.symbol} are carrying the same White Oak direction. Treat the relationship as a macro confirmation, then wait for each market's own zone and trigger.`
-    : `${left.symbol} and ${right.symbol} are carrying opposite White Oak directions. The divergence is a risk filter: avoid treating either signal as a standalone macro trade.`;
+    ? `${left.symbol} and ${right.symbol} have the same sign in their WO differences. This is not a measured correlation or macro confirmation; assess each market's exposure, zone, and price trigger separately.`
+    : `${left.symbol} and ${right.symbol} have different signs in their WO differences. This sign comparison is not a measured correlation; assess each market's exposure and price structure separately.`;
 
   return (
     <div className="mt-5 space-y-4">

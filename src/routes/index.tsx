@@ -15,13 +15,13 @@ import { Button } from "@/components/ui/button";
 import { SignInGate, UserButton } from "@/lib/auth/gates";
 import { getCotBoard } from "@/lib/cot/board.functions";
 import {
-  DEFAULT_WATCHLIST_SETTINGS,
   getWatchAlerts,
   readWatchlistSession,
   type WatchlistSettings,
   writeWatchlistSession,
 } from "@/lib/cot/watchlist";
 import { CATEGORY_LABEL } from "@/lib/cot/instruments";
+import { stanceInPairQuote } from "@/lib/cot/instruments";
 import { formatDate } from "@/lib/cot/format";
 import type { CotCategory, InstrumentReport } from "@/lib/cot/types";
 import { cn } from "@/lib/utils";
@@ -65,7 +65,6 @@ function Home() {
 
   const active = board.instruments.find((row) => row.code === search.code) ?? null;
   const watchedReports = board.instruments.filter((row) => watchlistCodes.includes(row.code));
-  const watchAlerts = getWatchAlerts(board.instruments, watchlistCodes, watchlistSettings);
   const balancedCount = board.instruments.filter((row) => row.stance === "balanced").length;
 
   useEffect(() => {
@@ -281,7 +280,7 @@ function sortReports(sort: SortKey) {
       return be - ae;
     }
     if (sort === "change") return Math.abs(b.woDiffChange) - Math.abs(a.woDiffChange);
-    const rs = rank[a.stance] - rank[b.stance];
+    const rs = rank[stanceInPairQuote(a.pair, a.stance)] - rank[stanceInPairQuote(b.pair, b.stance)];
     if (rs !== 0) return rs;
     return Math.abs(b.score) - Math.abs(a.score);
   };

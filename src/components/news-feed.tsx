@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import type { Stance } from "@/lib/cot/types";
 import { cn } from "@/lib/utils";
 import { getMarketNews, type NewsStory } from "@/lib/news/news.functions";
 
-export function NewsFeed({ symbol, stance }: { symbol: string; stance: string }) {
+export function NewsFeed({ symbol, stance }: { symbol: string; stance: Stance }) {
   const [stories, setStories] = useState<NewsStory[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,7 +16,7 @@ export function NewsFeed({ symbol, stance }: { symbol: string; stance: string })
         const next = await getMarketNews({
           data: {
             symbol,
-            stance: stance as "strong-bid" | "bid" | "balanced" | "offer" | "strong-offer",
+            stance,
           },
         });
         if (!cancelled) setStories(next.slice(0, 4));

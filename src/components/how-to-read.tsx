@@ -24,20 +24,21 @@ export function HowToRead({
           </div>
           <div className="mt-5 space-y-4 text-sm leading-relaxed text-muted">
             <p>
-              Legacy futures-only Commitments of Traders. Three books: non-commercials (large
-              specs: hedge funds, banks, and institutions; commercials: corporations hedging; and
-              non-reportable (retail).
+              Legacy Futures Only Commitments of Traders groups reportable positions as
+              non-commercial, commercial, and non-reportable. These are CFTC classifications, not
+              verified identities for every trader in a group.
             </p>
             <p>
-              <strong className="font-medium text-fg">Non-commercials move price.</strong> They
-              speculate with the direction they expect. Adding to a winning book is accumulation;
-              cutting a winning book is profit taking.
+              <strong className="font-medium text-fg">Non-commercials are the directional book in this framework.</strong>{" "}
+              They are large reportable speculators, often interpreted as funds and institutional
+              traders, including hedge funds and banks. The report does not identify each trader.
+              Adding to a winning book is accumulation; cutting a winning book is profit taking.
             </p>
             <p>
-              <strong className="font-medium text-fg">Non-commercials are the directional book.</strong>{" "}
-              They are the hedge funds, banks, and institutions that move price. Commercials are
-              corporations hedging the opposite exposure: short hedging can confirm a bid, while
-              long hedging can confirm an offer.
+              <strong className="font-medium text-fg">Commercials are commercial hedgers, not corporate hedge funds.</strong>{" "}
+              This group represents commercial market participants hedging business exposure.
+              Their positioning is read as inverse context: commercial net shorts can support a
+              bid interpretation, while commercial net longs can support an offer interpretation.
             </p>
             <p>
               <strong className="font-medium text-fg">Difference = spec net − commercial net.</strong>{" "}

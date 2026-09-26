@@ -18,7 +18,7 @@ function tickDate(value: string) {
 
 export function NetChart({ series }: { series: SeriesPoint[] }) {
   return (
-    <div className="h-64 w-full">
+    <div className="h-64 w-full" aria-label="Net positions by CFTC trader group">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={series} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
           <CartesianGrid stroke="var(--color-border)" vertical={false} />
@@ -59,7 +59,7 @@ export function NetChart({ series }: { series: SeriesPoint[] }) {
           <Line
             type="monotone"
             dataKey="n"
-            name="Non-commercial"
+            name="Non-commercial large specs (net)"
             stroke="var(--color-fg)"
             strokeWidth={1.8}
             dot={false}
@@ -67,7 +67,7 @@ export function NetChart({ series }: { series: SeriesPoint[] }) {
           <Line
             type="monotone"
             dataKey="c"
-            name="Commercial"
+            name="Commercial hedgers (net)"
             stroke="var(--color-bid)"
             strokeWidth={1.8}
             dot={false}
@@ -75,7 +75,7 @@ export function NetChart({ series }: { series: SeriesPoint[] }) {
           <Line
             type="monotone"
             dataKey="r"
-            name="Retail"
+            name="Non-reportable retail (net)"
             stroke="var(--color-muted)"
             strokeWidth={1.2}
             strokeDasharray="4 4"

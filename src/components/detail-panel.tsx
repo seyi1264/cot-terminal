@@ -407,7 +407,7 @@ function DetailBody({
         </div>
 
         <section>
-          <h3 className="mb-3 font-display text-lg text-fg">Net positions</h3>
+          <h3 className="mb-3 font-display text-lg text-fg">Net positions by CFTC group</h3>
           <NetChart series={report.series} />
         </section>
 
@@ -584,8 +584,8 @@ function TradingSignalPanel({
         </div>
       ) : null}
       <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-        <p className="rounded-md bg-bg/50 p-2 text-muted">Non-commercial futures book: <strong className="text-fg">{signal.institutional}</strong></p>
-        <p className="rounded-md bg-bg/50 p-2 text-muted">Commercial hedge context (inverse): <strong className="text-fg">{signal.speculators}</strong></p>
+        <p className="rounded-md bg-bg/50 p-2 text-muted">Non-commercial large-spec book: <strong className="text-fg">{signal.institutional}</strong></p>
+        <p className="rounded-md bg-bg/50 p-2 text-muted">Commercial hedger book (inverse context): <strong className="text-fg">{signal.speculators}</strong></p>
       </div>
       <p className="mt-2 text-xs text-muted">
         {market.currentPrice !== null ? `Live price: ${market.currentPrice}` : "Live price: unavailable"}

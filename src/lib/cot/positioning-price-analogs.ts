@@ -51,7 +51,7 @@ export function analyzePositioningPriceAnalogs(
       side,
       matches: [],
       medianFourWeekReturn: null,
-      summary: "Non-commercial net positioning is not in a historical tail; there is no close extreme-positioning analog to compare.",
+      summary: `No past examples are shown because current non-commercial net positioning is at the ${currentIndex.toFixed(0)}th percentile. This comparison only runs for net shorts at or below the 30th percentile, or net longs at or above the 70th.`,
     };
   }
 
@@ -110,12 +110,12 @@ export function analyzePositioningPriceAnalogs(
 
   const medianFourWeekReturn = median(selected.map((match) => match.fourWeekReturn));
   const sideText = side === "short" ? "net-short" : "net-long";
-  const buildText = currentShortBuild && side === "short" ? " and shorts increased in the latest report" : "";
+  const buildText = currentShortBuild && side === "short" ? " Short contracts also increased and net positioning moved further short in the latest report." : "";
   return {
     status: "ready",
     side,
     matches: selected,
     medianFourWeekReturn,
-    summary: `Non-commercials are at a historical ${sideText} extreme${buildText}. In ${selected.length} similar positioning episodes, the median market-price move over the next four weeks was ${medianFourWeekReturn >= 0 ? "+" : ""}${medianFourWeekReturn.toFixed(2)}%. This is historical context, not a forecast; net-position changes alone do not prove new shorts were opened.`,
+    summary: `Non-commercials are at a historical ${sideText} extreme. ${selected.length} past reports had the same net-position side and a similar historical percentile. Their median market-price move over the following four weeks was ${medianFourWeekReturn >= 0 ? "+" : ""}${medianFourWeekReturn.toFixed(2)}%.${buildText} This is historical context, not a forecast.`,
   };
 }

@@ -236,7 +236,13 @@ function DetailBody({
           </div>
         </section>
 
-        <TradingSignalPanel signal={report.tradingSignal} market={marketConfirmation} pair={report.pair} stance={report.stance} />
+        <TradingSignalPanel
+          signal={report.tradingSignal}
+          market={marketConfirmation}
+          pair={report.pair}
+          stance={report.stance}
+          positioning={{ net: report.noncomm.net, index: report.noncomm.index, dShort: report.noncomm.dShort, dNet: report.noncomm.dNet }}
+        />
 
         <section>
           <p className="text-[11px] uppercase tracking-wide text-subtle">White Oak reading</p>
@@ -543,11 +549,13 @@ function TradingSignalPanel({
   market,
   pair,
   stance,
+  positioning,
 }: {
   signal: InstrumentReport["tradingSignal"];
   market: MarketConfirmation;
   pair: string;
   stance: InstrumentReport["stance"];
+  positioning: { net: number; index: number; dShort: number; dNet: number };
 }) {
   const currentPrice = market.currentPrice;
   const previousClose = market.previousClose;
@@ -606,21 +614,27 @@ function TradingSignalPanel({
       ) : null}
       {market.positioningAnalogs ? (
         <div className="mt-3 rounded-md border border-border bg-bg/50 p-3 text-xs text-muted">
-          <p className="font-medium text-fg">Historical positioning analogs</p>
-          <p className="mt-1 leading-relaxed">{market.positioningAnalogs.summary}</p>
+          <p className="font-medium text-fg">Past price after similar COT positioning</p>
+          <p className="mt-1 leading-relaxed">This compares the current large-trader book with earlier reports for this market, then shows what price did over the next four weeks.</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            <p className="rounded bg-bg-elevated p-2">Current non-commercial net<br /><strong className="text-fg">{formatSigned(positioning.net)} contracts</strong></p>
+            <p className="rounded bg-bg-elevated p-2">Historical rank<br /><strong className="text-fg">{positioning.index.toFixed(0)}th percentile</strong></p>
+            <p className="rounded bg-bg-elevated p-2">Latest weekly change<br /><strong className="text-fg">Short contracts {positioning.dShort > 0 ? "increased" : positioning.dShort < 0 ? "decreased" : "were unchanged"} {formatSigned(positioning.dShort)}; net changed {formatSigned(positioning.dNet)}</strong></p>
+          </div>
+          <p className="mt-2 leading-relaxed">{market.positioningAnalogs.summary}</p>
           {market.positioningAnalogs.matches.length ? (
             <ul className="mt-2 grid gap-1 sm:grid-cols-2">
               {market.positioningAnalogs.matches.map((match) => (
                 <li key={match.date} className="flex justify-between gap-3 rounded bg-bg-elevated px-2 py-1">
-                  <span>{formatDate(match.date)} · {match.percentile.toFixed(0)}th pct</span>
+                  <span>{formatDate(match.date)} · {match.percentile.toFixed(0)}th percentile</span>
                   <strong className={match.fourWeekReturn >= 0 ? "text-bid" : "text-offer"}>
-                    {match.fourWeekReturn >= 0 ? "+" : ""}{match.fourWeekReturn.toFixed(2)}% / 4w
+                    {match.fourWeekReturn >= 0 ? "+" : ""}{match.fourWeekReturn.toFixed(2)}% after 4 weeks
                   </strong>
                 </li>
               ))}
             </ul>
           ) : null}
-          <p className="mt-2 text-[10px] text-subtle">Historical price response after similar COT reports; not a forecast or entry signal.</p>
+          <p className="mt-2 leading-relaxed text-subtle">Percentile means where today’s net sits within its own history: low values are near the historical low; high values are near the historical high. Past examples must have the same net-long/net-short side and be within 12 percentile points; examples are spaced at least 13 weeks apart. A positive return means price rose; a negative return means it fell. The comparison does not require shorts to have increased in the past examples, and it is not a forecast or entry signal.</p>
         </div>
       ) : null}
       <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">

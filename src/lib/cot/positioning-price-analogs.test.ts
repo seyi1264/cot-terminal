@@ -47,3 +47,12 @@ test("does not invent an analog when positioning is not at an extreme", () => {
   assert.equal(read.status, "not-extreme");
   assert.equal(read.matches.length, 0);
 });
+
+test("includes the 40th-percentile short and 60th-percentile long boundaries", () => {
+  const { series, prices } = fixtures();
+  const shortRead = analyzePositioningPriceAnalogs(series, prices, -80, 40, false);
+  const longRead = analyzePositioningPriceAnalogs(series, prices, 80, 60, false);
+
+  assert.notEqual(shortRead.status, "not-extreme");
+  assert.notEqual(longRead.status, "not-extreme");
+});

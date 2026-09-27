@@ -44,14 +44,14 @@ export function analyzePositioningPriceAnalogs(
 ): PositioningPriceAnalogRead {
   const side = currentNet < 0 ? "short" : "long";
   const lowerTail = side === "short";
-  const isMatchingExtreme = lowerTail ? currentIndex <= 30 : currentIndex >= 70;
+  const isMatchingExtreme = lowerTail ? currentIndex <= 40 : currentIndex >= 60;
   if (!isMatchingExtreme) {
     return {
       status: "not-extreme",
       side,
       matches: [],
       medianFourWeekReturn: null,
-      summary: `No past examples are shown because current non-commercial net positioning is at the ${currentIndex.toFixed(0)}th percentile. This comparison only runs for net shorts at or below the 30th percentile, or net longs at or above the 70th.`,
+      summary: `No past examples are shown because current non-commercial net positioning is at the ${currentIndex.toFixed(0)}th percentile. This comparison only runs for net shorts at or below the 40th percentile, or net longs at or above the 60th.`,
     };
   }
 

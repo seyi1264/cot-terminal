@@ -1,8 +1,8 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Info, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatContracts, formatDate, formatSigned } from "@/lib/cot/format";
-import { getMarketHistory, getMarketPrice, getMarketTimeframes } from "@/lib/cot/price.functions";
+import { getMarketHistory, getMarketPrice, getMarketTimeframes, MARKET_PRICE_REFRESH_MS } from "@/lib/cot/price.functions";
 import { analyzePositioningPriceAnalogs, type PositioningPriceAnalogRead } from "@/lib/cot/positioning-price-analogs";
 import { doesStanceSupportZone, stanceInPairQuote } from "@/lib/cot/instruments";
 import { chooseActiveZone } from "@/lib/cot/zone-selection";
@@ -97,6 +97,7 @@ function DetailBody({
     priceAction: null,
     positioningAnalogs: null,
   });
+  const zonesRef = useRef<ThesisZone[]>([]);
   const recent = useMemo(() => [...report.series].slice(-13).reverse(), [report.series]);
   const signalChecklist = useMemo(() => {
     const distributionSetup = isDistributionSetup(report.woDiff, report.noncomm, report.comm, report.retail);
@@ -147,6 +148,7 @@ function DetailBody({
       setMarketConfirmation((current) => ({ ...current, status: "unavailable" }));
       return () => { active = false; };
     }
+    zonesRef.current = [];
     void Promise.all([
       getMarketPrice({ data: { symbol } }),
       getMarketTimeframes({ data: { symbol } }),
@@ -154,6 +156,7 @@ function DetailBody({
       listThesisZones().catch(() => [] as ThesisZone[]),
     ]).then(([price, timeframes, priceHistory, zones]) => {
       if (!active) return;
+      zonesRef.current = zones;
       const currentZone = chooseActiveZone(
         zones,
         report.code,
@@ -194,6 +197,32 @@ function DetailBody({
     report.series,
     report.stance,
   ]);
+
+  useEffect(() => {
+    const symbol = PRICE_SYMBOLS[report.pair];
+    if (!symbol) return;
+    let active = true;
+    const interval = window.setInterval(() => {
+      void getMarketPrice({ data: { symbol } }).then(({ close }) => {
+        if (!active) return;
+        setMarketConfirmation((current) => ({
+          ...current,
+          status: current.status === "unavailable" ? "ready" : current.status,
+          currentPrice: close,
+          zone: chooseActiveZone(
+            zonesRef.current,
+            report.code,
+            close,
+            (direction) => doesStanceSupportZone(report.pair, report.stance, direction),
+          ),
+        }));
+      }).catch(() => {});
+    }, MARKET_PRICE_REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [report.code, report.pair, report.stance]);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -653,7 +682,7 @@ function TradingSignalPanel({
         <p className="rounded-md bg-bg/50 p-2 text-muted">Commercial hedger book (inverse context): <strong className="text-fg">{signal.speculators}</strong></p>
       </div>
       <p className="mt-2 text-xs text-muted">
-        {market.currentPrice !== null ? `Live price: ${market.currentPrice}` : "Live price: unavailable"}
+        {market.currentPrice !== null ? `Live price: ${market.currentPrice} · refreshes every minute` : "Live price: unavailable"}
         {market.zone ? ` · Saved zone: ${market.zone.lowerPrice}–${market.zone.upperPrice} ${market.zone.direction}` : " · Saved zone: none"}
       </p>
     </section>

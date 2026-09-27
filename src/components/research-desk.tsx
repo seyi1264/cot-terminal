@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Download, Gauge, GitCompare, History, NotebookPen, TrendingUp, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getMarketPrice } from "@/lib/cot/price.functions";
+import { getMarketPrice, MARKET_PRICE_REFRESH_MS } from "@/lib/cot/price.functions";
 import { getMacroCalendar, type MacroEvent } from "@/lib/cot/macro.functions";
 import { formatSigned } from "@/lib/cot/format";
 import { stanceInPairQuote } from "@/lib/cot/instruments";
@@ -170,9 +170,13 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
       return;
     }
     let active = true;
-    void getMarketPrice({ data: { symbol } })
-      .then((value) => active && setPrice(value))
-      .catch(() => active && setPrice(null));
+    const refreshPrice = () => {
+      void getMarketPrice({ data: { symbol } })
+        .then((value) => active && setPrice(value))
+        .catch(() => {});
+    };
+    refreshPrice();
+    const interval = window.setInterval(refreshPrice, MARKET_PRICE_REFRESH_MS);
     void import("@/lib/cot/price.functions").then(({ getMarketHistory }) =>
       getMarketHistory({ data: { symbol } })
         .then((history) => active && setPriceHistory(history))
@@ -180,6 +184,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
     );
     return () => {
       active = false;
+      window.clearInterval(interval);
     };
   }, [report.pair]);
 
@@ -374,7 +379,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
         <div className="rounded-lg bg-bg p-4 text-xs leading-relaxed text-muted shadow-[var(--shadow-border)]"><p className="text-[10px] uppercase tracking-wide text-subtle">Read the replay</p><p className="mt-2">The vertical marker is the active historical week. Positioning stops at that point while the price overlay follows the same replay window.</p><p className="mt-3 text-subtle">This is historical context, not a price backtest.</p></div>
       </div>
       <div className="col-span-full mt-2 grid gap-2 sm:grid-cols-2">
-        <div className="rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]"><p className="text-[10px] uppercase tracking-wide text-subtle">Latest price context</p><p className="mt-2 font-mono text-sm text-fg">{price ? price.close.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "Unavailable"}</p><p className="mt-1 text-xs text-muted">{price ? `Yahoo Finance daily close · ${price.date}` : "Price source did not return a quote."}</p></div>
+        <div className="rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]"><p className="text-[10px] uppercase tracking-wide text-subtle">Latest price context</p><p className="mt-2 font-mono text-sm text-fg">{price ? price.close.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "Unavailable"}</p><p className="mt-1 text-xs text-muted">{price ? `Yahoo Finance quote · refreshes every minute · ${price.date}` : "Price source did not return a quote."}</p></div>
       </div>
     </div>
   </div>;

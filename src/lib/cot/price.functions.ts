@@ -13,6 +13,8 @@ export type MarketTimeframe = "monthly" | "weekly" | "daily" | "fourHour" | "one
 
 export type MarketTimeframes = Record<MarketTimeframe, MarketCandle[]>;
 
+export const MARKET_PRICE_REFRESH_MS = 60_000;
+
 const TIMEFRAME_CONFIG: Record<MarketTimeframe, { interval: string; range: string }> = {
   monthly: { interval: "1mo", range: "max" },
   weekly: { interval: "1wk", range: "10y" },
@@ -66,10 +68,11 @@ export const getMarketPrice = createServerFn({ method: "POST" })
   .validator(z.object({ symbol: z.string().min(1).max(20) }))
   .handler(async ({ data }) => {
     const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(data.symbol)}`);
-    url.searchParams.set("range", "5d");
-    url.searchParams.set("interval", "1d");
+    url.searchParams.set("range", "1d");
+    url.searchParams.set("interval", "1m");
     const response = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "OakLedger/1.0" },
+      cache: "no-store",
+      headers: { Accept: "application/json", "Cache-Control": "no-cache", "User-Agent": "OakLedger/1.0" },
       signal: AbortSignal.timeout(8_000),
     });
     if (!response.ok) throw new Error(`Price source ${response.status}`);
@@ -79,9 +82,9 @@ export const getMarketPrice = createServerFn({ method: "POST" })
     const result = json.chart?.result?.[0];
     const closes = result?.indicators?.quote?.[0]?.close ?? [];
     const closeIndex = [...closes].map((value, index) => (value == null ? -1 : index)).at(-1) ?? -1;
-    const close = closeIndex >= 0 ? closes[closeIndex] : result?.meta?.regularMarketPrice;
+    const close = result?.meta?.regularMarketPrice ?? (closeIndex >= 0 ? closes[closeIndex] : undefined);
     if (typeof close !== "number" || !Number.isFinite(close)) throw new Error("Price close unavailable");
-    const timestamp = result?.timestamp?.[closeIndex] ?? result?.meta?.regularMarketTime;
+    const timestamp = result?.meta?.regularMarketTime ?? result?.timestamp?.[closeIndex];
     return { close, date: timestamp ? new Date(timestamp * 1000).toISOString().slice(0, 10) : "" };
   });
 

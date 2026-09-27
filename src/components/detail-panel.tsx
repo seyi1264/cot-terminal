@@ -2,7 +2,8 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Info, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { formatContracts, formatDate, formatSigned } from "@/lib/cot/format";
-import { getMarketPrice, getMarketTimeframes } from "@/lib/cot/price.functions";
+import { getMarketHistory, getMarketPrice, getMarketTimeframes } from "@/lib/cot/price.functions";
+import { analyzePositioningPriceAnalogs, type PositioningPriceAnalogRead } from "@/lib/cot/positioning-price-analogs";
 import { doesStanceSupportZone, stanceInPairQuote } from "@/lib/cot/instruments";
 import { chooseActiveZone } from "@/lib/cot/zone-selection";
 import { analyzeMultiTimeframe, type MultiTimeframeRead } from "@/lib/cot/price-action";
@@ -53,6 +54,7 @@ type MarketConfirmation = {
   cotPeriodPriceChange: number | null;
   zone: ThesisZone | null;
   priceAction: MultiTimeframeRead | null;
+  positioningAnalogs: PositioningPriceAnalogRead | null;
 };
 
 export function DetailPanel({
@@ -93,6 +95,7 @@ function DetailBody({
     cotPeriodPriceChange: null,
     zone: null,
     priceAction: null,
+    positioningAnalogs: null,
   });
   const recent = useMemo(() => [...report.series].slice(-13).reverse(), [report.series]);
   const signalChecklist = useMemo(() => {
@@ -139,7 +142,7 @@ function DetailBody({
   useEffect(() => {
     let active = true;
     const symbol = PRICE_SYMBOLS[report.pair];
-    setMarketConfirmation({ status: "loading", currentPrice: null, previousClose: null, cotPeriodPriceChange: null, zone: null, priceAction: null });
+    setMarketConfirmation({ status: "loading", currentPrice: null, previousClose: null, cotPeriodPriceChange: null, zone: null, priceAction: null, positioningAnalogs: null });
     if (!symbol) {
       setMarketConfirmation((current) => ({ ...current, status: "unavailable" }));
       return () => { active = false; };
@@ -147,8 +150,9 @@ function DetailBody({
     void Promise.all([
       getMarketPrice({ data: { symbol } }),
       getMarketTimeframes({ data: { symbol } }),
+      getMarketHistory({ data: { symbol } }).catch(() => []),
       listThesisZones().catch(() => [] as ThesisZone[]),
-    ]).then(([price, timeframes, zones]) => {
+    ]).then(([price, timeframes, priceHistory, zones]) => {
       if (!active) return;
       const currentZone = chooseActiveZone(
         zones,
@@ -167,12 +171,29 @@ function DetailBody({
         ),
         zone: currentZone,
         priceAction: analyzeMultiTimeframe(timeframes),
+        positioningAnalogs: analyzePositioningPriceAnalogs(
+          report.series,
+          priceHistory,
+          report.noncomm.net,
+          report.noncomm.index,
+          report.noncomm.dShort > 0 && report.noncomm.dNet < 0,
+        ),
       });
     }).catch(() => {
-      if (active) setMarketConfirmation({ status: "unavailable", currentPrice: null, previousClose: null, cotPeriodPriceChange: null, zone: null, priceAction: null });
+      if (active) setMarketConfirmation({ status: "unavailable", currentPrice: null, previousClose: null, cotPeriodPriceChange: null, zone: null, priceAction: null, positioningAnalogs: null });
     });
     return () => { active = false; };
-  }, [report.asOf, report.code, report.pair, report.series, report.stance]);
+  }, [
+    report.asOf,
+    report.code,
+    report.noncomm.dNet,
+    report.noncomm.dShort,
+    report.noncomm.index,
+    report.noncomm.net,
+    report.pair,
+    report.series,
+    report.stance,
+  ]);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -391,17 +412,17 @@ function DetailBody({
         <div className="grid gap-3 md:grid-cols-3">
           <GroupStats
             title="Non-commercial"
-            subtitle="Large specs — they bet with the move"
+            subtitle="Banks, hedge funds, and institutions"
             snap={report.noncomm}
           />
           <GroupStats
             title="Commercial"
-            subtitle="Corporate hedgers — inverse context"
+            subtitle="Corporate hedgers"
             snap={report.comm}
           />
           <GroupStats
-            title="Retail"
-            subtitle="Non-reportable — often wrong at extremes"
+            title="Non-reportable"
+            subtitle="Small traders / retail"
             snap={report.retail}
           />
         </div>
@@ -581,6 +602,25 @@ function TradingSignalPanel({
               return <p key={timeframe} className="rounded-md bg-bg/50 p-2"><strong className="text-fg">{timeframe === "fourHour" ? "4H" : timeframe === "oneHour" ? "1H" : timeframe === "monthly" ? "1M" : timeframe === "weekly" ? "1W" : "1D"}</strong><br />{read.structure} · {read.momentumShift}{read.displacement ? " · displacement" : ""}</p>;
             })}
           </div>
+        </div>
+      ) : null}
+      {market.positioningAnalogs ? (
+        <div className="mt-3 rounded-md border border-border bg-bg/50 p-3 text-xs text-muted">
+          <p className="font-medium text-fg">Historical positioning analogs</p>
+          <p className="mt-1 leading-relaxed">{market.positioningAnalogs.summary}</p>
+          {market.positioningAnalogs.matches.length ? (
+            <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+              {market.positioningAnalogs.matches.map((match) => (
+                <li key={match.date} className="flex justify-between gap-3 rounded bg-bg-elevated px-2 py-1">
+                  <span>{formatDate(match.date)} · {match.percentile.toFixed(0)}th pct</span>
+                  <strong className={match.fourWeekReturn >= 0 ? "text-bid" : "text-offer"}>
+                    {match.fourWeekReturn >= 0 ? "+" : ""}{match.fourWeekReturn.toFixed(2)}% / 4w
+                  </strong>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="mt-2 text-[10px] text-subtle">Historical price response after similar COT reports; not a forecast or entry signal.</p>
         </div>
       ) : null}
       <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">

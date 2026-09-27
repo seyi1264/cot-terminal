@@ -29,16 +29,17 @@ export function HowToRead({
               verified identities for every trader in a group.
             </p>
             <p>
-              <strong className="font-medium text-fg">Non-commercials are the directional book in this framework.</strong>{" "}
-              They are large reportable speculators, often interpreted as funds and institutional
-              traders, including hedge funds and banks. The report does not identify each trader.
-              Adding to a winning book is accumulation; cutting a winning book is profit taking.
+              <strong className="font-medium text-fg">Non-commercials are the directional institutional book.</strong>{" "}
+              In the CFTC report this bucket includes banks, large hedge funds, and other major
+              institutions. It is not a list of every trader identity; it is the large-reportable
+              speculative book. Adding to a winning book is accumulation; cutting a winning book
+              is profit taking.
             </p>
             <p>
-              <strong className="font-medium text-fg">Commercials are commercial hedgers, not corporate hedge funds.</strong>{" "}
-              This group represents commercial market participants hedging business exposure.
-              Their positioning is read as inverse context: commercial net shorts can support a
-              bid interpretation, while commercial net longs can support an offer interpretation.
+              <strong className="font-medium text-fg">Commercials are corporate hedgers, not hedge funds.</strong>{" "}
+              This group represents businesses hedging real exposure. Their positioning is read as
+              inverse context: commercial net shorts can support a bid interpretation, while
+              commercial net longs can support an offer interpretation.
             </p>
             <p>
               <strong className="font-medium text-fg">Difference = spec net − commercial net.</strong>{" "}

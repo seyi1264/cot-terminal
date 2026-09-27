@@ -59,7 +59,7 @@ export function NetChart({ series }: { series: SeriesPoint[] }) {
           <Line
             type="monotone"
             dataKey="n"
-            name="Non-commercial large specs (net)"
+            name="Non-commercial (banks, hedge funds, institutions) net"
             stroke="var(--color-fg)"
             strokeWidth={1.8}
             dot={false}
@@ -67,7 +67,7 @@ export function NetChart({ series }: { series: SeriesPoint[] }) {
           <Line
             type="monotone"
             dataKey="c"
-            name="Commercial hedgers (net)"
+            name="Commercial (corporate hedgers) net"
             stroke="var(--color-bid)"
             strokeWidth={1.8}
             dot={false}
@@ -75,7 +75,7 @@ export function NetChart({ series }: { series: SeriesPoint[] }) {
           <Line
             type="monotone"
             dataKey="r"
-            name="Non-reportable retail (net)"
+            name="Non-reportable (small traders) net"
             stroke="var(--color-muted)"
             strokeWidth={1.2}
             strokeDasharray="4 4"

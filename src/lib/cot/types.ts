@@ -1,5 +1,23 @@
 export type CotCategory = "fx" | "metals" | "energy" | "equity" | "rates" | "crypto";
 
+export const COT_GROUP_LABELS = {
+  noncomm: {
+    label: "Non-commercial",
+    subtitle: "Banks, large hedge funds, and institutions",
+    detail: "This is the directional institutional book in the CFTC report.",
+  },
+  comm: {
+    label: "Commercial",
+    subtitle: "Corporate hedgers",
+    detail: "This is the hedging book: corporations managing business risk.",
+  },
+  retail: {
+    label: "Non-reportable",
+    subtitle: "Small traders / retail",
+    detail: "This is the small-trader book, often crowded at extremes.",
+  },
+} as const;
+
 export type Stance = "strong-bid" | "bid" | "balanced" | "offer" | "strong-offer";
 
 export type ThesisStatus = "FORMING" | "ACTIVE" | "CONFIRMED" | "EXPIRED";

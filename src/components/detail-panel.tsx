@@ -662,19 +662,39 @@ function TradingSignalPanel({
             <p className="rounded bg-bg-elevated p-2">Latest weekly change<br /><strong className="text-fg">Short contracts {positioning.dShort > 0 ? "increased" : positioning.dShort < 0 ? "decreased" : "were unchanged"} {formatSigned(positioning.dShort)}; net changed {formatSigned(positioning.dNet)}</strong></p>
           </div>
           <p className="mt-2 leading-relaxed">{market.positioningAnalogs.summary}</p>
-          {market.positioningAnalogs.matches.length ? (
-            <ul className="mt-2 grid gap-1 sm:grid-cols-2">
-              {market.positioningAnalogs.matches.map((match) => (
-                <li key={match.date} className="flex justify-between gap-3 rounded bg-bg-elevated px-2 py-1">
-                  <span>{formatDate(match.date)} · {match.percentile.toFixed(0)}th percentile</span>
-                  <strong className={match.fourWeekReturn >= 0 ? "text-bid" : "text-offer"}>
-                    {match.fourWeekReturn >= 0 ? "+" : ""}{match.fourWeekReturn.toFixed(2)}% after 4 weeks
-                  </strong>
-                </li>
-              ))}
-            </ul>
+          {market.positioningAnalogs.scenario ? (
+            <div className="mt-2 rounded-md border border-accent/35 bg-accent/5 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent">Historical scenario · not a forecast</p>
+              <p className="mt-1 leading-relaxed text-fg">{market.positioningAnalogs.scenario}</p>
+            </div>
           ) : null}
-          <p className="mt-2 leading-relaxed text-subtle">Percentile means where today’s net sits within its own history: low values are near the historical low; high values are near the historical high. Past examples must have the same net-long/net-short side and be within 12 percentile points; examples are spaced at least 13 weeks apart. A positive return means price rose; a negative return means it fell. The comparison does not require shorts to have increased in the past examples, and it is not a forecast or entry signal.</p>
+          {market.positioningAnalogs.middleRange ? (
+            <div className="mt-2 grid gap-2 sm:grid-cols-4">
+              <p className="rounded bg-bg-elevated p-2">Past cases<br /><strong className="text-fg">{market.positioningAnalogs.sampleSize}</strong></p>
+              <p className="rounded bg-bg-elevated p-2">Price rose after 4 weeks<br /><strong className="text-fg">{market.positioningAnalogs.priceUpRate!.toFixed(0)}%</strong></p>
+              <p className="rounded bg-bg-elevated p-2">Median 4-week move<br /><strong className="text-fg">{market.positioningAnalogs.medianFourWeekReturn! >= 0 ? "+" : ""}{market.positioningAnalogs.medianFourWeekReturn!.toFixed(2)}%</strong></p>
+              <p className="rounded bg-bg-elevated p-2">Middle 50% of moves<br /><strong className="text-fg">{market.positioningAnalogs.middleRange.low >= 0 ? "+" : ""}{market.positioningAnalogs.middleRange.low.toFixed(2)}% to {market.positioningAnalogs.middleRange.high >= 0 ? "+" : ""}{market.positioningAnalogs.middleRange.high.toFixed(2)}%</strong></p>
+            </div>
+          ) : null}
+          {market.positioningAnalogs.middleRange && market.currentPrice !== null ? (
+            <p className="mt-2 rounded bg-bg-elevated p-2">Illustrative 4-week price band from current quote: <strong className="text-fg">{(market.currentPrice * (1 + market.positioningAnalogs.middleRange.low / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })} to {(market.currentPrice * (1 + market.positioningAnalogs.middleRange.high / 100)).toLocaleString(undefined, { maximumFractionDigits: 4 })}</strong></p>
+          ) : null}
+          {market.positioningAnalogs.matches.length ? (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-fg">View all {market.positioningAnalogs.matches.length} historical matches</summary>
+              <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+                {market.positioningAnalogs.matches.map((match) => (
+                  <li key={match.date} className="flex justify-between gap-3 rounded bg-bg-elevated px-2 py-1">
+                    <span>{formatDate(match.date)} · {match.percentile.toFixed(0)}th percentile</span>
+                    <strong className={match.fourWeekReturn >= 0 ? "text-bid" : "text-offer"}>
+                      {match.fourWeekReturn >= 0 ? "+" : ""}{match.fourWeekReturn.toFixed(2)}% after 4 weeks
+                    </strong>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+          <p className="mt-2 leading-relaxed text-subtle">Percentile means where today’s net sits within its own history: low values are near the historical low; high values are near the historical high. Past examples must have the same net-long/net-short side and be within 12 percentile points; examples are spaced at least 13 weeks apart. The up-rate and middle range describe these past cases only; they are not validated odds or a forecast. A positive return means price rose; a negative return means it fell. The comparison does not require shorts to have increased in the past examples.</p>
         </div>
       ) : null}
       <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">

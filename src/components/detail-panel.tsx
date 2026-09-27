@@ -238,6 +238,7 @@ function DetailBody({
 
         <TradingSignalPanel
           signal={report.tradingSignal}
+          positioningWarning={report.positioningWarning}
           market={marketConfirmation}
           pair={report.pair}
           stance={report.stance}
@@ -546,12 +547,14 @@ function DecisionCard({
 
 function TradingSignalPanel({
   signal,
+  positioningWarning,
   market,
   pair,
   stance,
   positioning,
 }: {
   signal: InstrumentReport["tradingSignal"];
+  positioningWarning: InstrumentReport["positioningWarning"];
   market: MarketConfirmation;
   pair: string;
   stance: InstrumentReport["stance"];
@@ -601,6 +604,14 @@ function TradingSignalPanel({
         <span className="rounded-full border border-current/30 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-current">{signal.label}</span>
       </div>
       <p className="mt-3 text-sm leading-relaxed text-fg">{summary}</p>
+      <div className={cn(
+        "mt-3 rounded-md border p-3",
+        positioningWarning.level === "warning" ? "border-amber-400/40 bg-amber-500/10" :
+          positioningWarning.level === "watch" ? "border-accent/35 bg-accent/5" : "border-border bg-bg/50",
+      )}>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">{positioningWarning.title}</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted">{positioningWarning.summary}</p>
+      </div>
       {market.priceAction ? (
         <div className="mt-3 space-y-2 text-xs text-muted">
           <p>{market.priceAction.summary}</p>

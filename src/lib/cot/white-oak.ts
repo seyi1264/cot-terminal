@@ -525,6 +525,50 @@ function buildTradingSignal(
   };
 }
 
+function buildPositioningWarning(
+  noncomm: GroupSnapshot,
+  retail: GroupSnapshot,
+  woIndex: number,
+  oiChange: number,
+): InstrumentReport["positioningWarning"] {
+  const longExtreme = woIndex >= 80;
+  const shortExtreme = woIndex <= 20;
+  const retailLongCrowded = retail.net > 0 && retail.index >= 75;
+  const retailShortCrowded = retail.net < 0 && retail.index <= 25;
+  const longProfitTaking = noncomm.flow.kind === "profit-long" || noncomm.flow.kind === "fade-long";
+  const shortCovering = noncomm.flow.kind === "cover-short";
+
+  if (longExtreme && (longProfitTaking || retailLongCrowded || oiChange < 0)) {
+    return {
+      level: "warning",
+      title: "CFTC warning: long positioning is stretched",
+      summary: `Large traders are near the upper end of their historical positioning range${longProfitTaking ? " and taking profit on longs" : ""}${retailLongCrowded ? "; retail is also crowded long" : ""}${oiChange < 0 ? "; open interest is contracting" : ""}. Treat this as reversal or distribution risk, then require price rejection from a mapped supply zone before acting.`,
+    };
+  }
+
+  if (shortExtreme && (shortCovering || retailShortCrowded || oiChange < 0)) {
+    return {
+      level: "warning",
+      title: "CFTC warning: short positioning is stretched",
+      summary: `Large traders are near the lower end of their historical positioning range${shortCovering ? " and covering shorts" : ""}${retailShortCrowded ? "; retail is also crowded short" : ""}${oiChange < 0 ? "; open interest is contracting" : ""}. Treat any rally as unconfirmed relief until price holds a mapped demand zone.`,
+    };
+  }
+
+  if (longExtreme || shortExtreme) {
+    return {
+      level: "watch",
+      title: "CFTC positioning is at an extreme",
+      summary: `The positioning index is ${woIndex.toFixed(0)}. Extreme readings identify a market to watch closely, not a reversal entry; use price and a mapped supply or demand zone for confirmation.`,
+    };
+  }
+
+  return {
+    level: "neutral",
+    title: "No CFTC extreme warning",
+    summary: `Positioning is inside the historical range at ${woIndex.toFixed(0)}. Follow the institutional direction, but wait for a price-confirmed zone before acting.`,
+  };
+}
+
 function invertPairLanguage(pair: string, stance: Stance): string {
   const label = stanceLabel(stance).toLowerCase();
   if (USD_BASE_PAIRS.has(pair)) {
@@ -852,6 +896,7 @@ export function analyzeInstrument(
     series,
   );
   const tradingSignal = buildTradingSignal(comm, nc, retail, woDiff);
+  const positioningWarning = buildPositioningWarning(nc, retail, woIndex, latest.oiChange);
   const { headline, body } = narrative(def, nc, comm, retail, woDiff, woIndex, stance, flags);
   const storyline = buildStoryline(woDiff, woDiffChange, nc, comm, retail, stance);
   const zone = buildZoneRead(def.pair, woDiff);
@@ -897,6 +942,7 @@ export function analyzeInstrument(
     thesisStatus,
     triggerLogic,
     tradingSignal,
+    positioningWarning,
     score,
     headline,
     body,

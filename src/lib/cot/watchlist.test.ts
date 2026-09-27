@@ -77,6 +77,7 @@ test("watch alerts prioritize methodology confluence and trigger logic over raw 
         thesisStatus: "ACTIVE",
         triggerLogic: { label: "STRONG BID", rule: "Trigger matched", matched: true },
         tradingSignal: { action: "WAIT", label: "COT context aligned", summary: "", institutional: "BULLISH", speculators: "BULLISH" },
+        positioningWarning: { level: "watch", title: "CFTC positioning is at an extreme", summary: "Positioning context only" },
         score: 7,
         headline: "Bid bias",
         body: "Signal is building",

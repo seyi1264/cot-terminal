@@ -36,6 +36,12 @@ export type TradingSignal = {
   speculators: "BULLISH" | "BEARISH" | "MIXED";
 };
 
+export type PositioningWarning = {
+  level: "warning" | "watch" | "neutral";
+  title: string;
+  summary: string;
+};
+
 export type FlowKind =
   | "accum-long"
   | "accum-short"
@@ -193,6 +199,7 @@ export type InstrumentReport = {
   thesisStatus: ThesisStatus;
   triggerLogic: TriggerLogic;
   tradingSignal: TradingSignal;
+  positioningWarning: PositioningWarning;
   score: number;
   headline: string;
   body: string;

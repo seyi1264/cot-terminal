@@ -197,4 +197,7 @@ test("stretched long positioning flags the institutional profit-taking handoff t
     report!.confluence?.checks.every(({ label }) => !/zone|trendline|macro|price confirmation/i.test(label)),
     "COT-only analysis must not claim chart or macro factors were observed",
   );
+  assert.equal(report!.positioningWarning.level, "warning");
+  assert.match(report!.positioningWarning.title, /long positioning is stretched/i);
+  assert.match(report!.positioningWarning.summary, /supply zone.*before acting/i);
 });

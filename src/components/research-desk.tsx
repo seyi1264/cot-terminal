@@ -11,6 +11,7 @@ import type { InstrumentReport } from "@/lib/cot/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { clampReplayRange, resolveReplayRange } from "@/lib/cot/replay-window";
+import { WhiteOakMethodReplay } from "@/components/white-oak-method-replay";
 
 type DeskTab = "confluence" | "comparison" | "replay" | "notes" | "calendar";
 
@@ -376,7 +377,7 @@ function Replay({ report, reports, index, onCodeChange, onIndexChange, onSelect 
           <div className="mt-2 flex items-center justify-between text-[11px] text-subtle"><span>{replaySeries[0]?.d}</span><span>{activePoint?.d}</span><span>{replaySeries.at(-1)?.d}</span></div>
           <div className="mt-2 flex items-center justify-between text-[11px] text-muted"><span>{priceSeries.length ? "Price overlay uses the nearest weekly close" : "Price overlay unavailable for this window"}</span>{activePricePoint ? <span className="font-mono text-bid">{activePricePoint.close.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span> : null}</div>
         </div>
-        <div className="rounded-lg bg-bg p-4 text-xs leading-relaxed text-muted shadow-[var(--shadow-border)]"><p className="text-[10px] uppercase tracking-wide text-subtle">Read the replay</p><p className="mt-2">The vertical marker is the active historical week. Positioning stops at that point while the price overlay follows the same replay window.</p><p className="mt-3 text-subtle">This is historical context, not a price backtest.</p></div>
+        <WhiteOakMethodReplay report={report} index={index} priceSymbol={PRICE_SYMBOLS[report.pair]} />
       </div>
       <div className="col-span-full mt-2 grid gap-2 sm:grid-cols-2">
         <div className="rounded-lg bg-bg p-3 shadow-[var(--shadow-border)]"><p className="text-[10px] uppercase tracking-wide text-subtle">Latest price context</p><p className="mt-2 font-mono text-sm text-fg">{price ? price.close.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "Unavailable"}</p><p className="mt-1 text-xs text-muted">{price ? `Yahoo Finance quote · refreshes every minute · ${price.date}` : "Price source did not return a quote."}</p></div>

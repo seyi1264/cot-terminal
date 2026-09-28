@@ -7,3 +7,10 @@ export const getCotBoard = createServerFn({ method: "POST" })
     const { loadBoard } = await import("./cftc.server.ts");
     return loadBoard(Boolean(data.force));
   });
+
+export const getCotInstrumentHistory = createServerFn({ method: "POST" })
+  .validator(z.object({ code: z.string().regex(/^\d{6}$/) }))
+  .handler(async ({ data }) => {
+    const { loadInstrumentHistory } = await import("./cftc.server.ts");
+    return loadInstrumentHistory(data.code);
+  });

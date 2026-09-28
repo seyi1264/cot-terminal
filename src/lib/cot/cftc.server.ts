@@ -72,9 +72,7 @@ function boardFromRows(rows: CotRawRow[]): CotBoard {
   };
 }
 
-async function fetchLive(): Promise<CotRawRow[]> {
-  const codes = INSTRUMENTS.map((i) => `'${i.code}'`).join(",");
-  const where = `cftc_contract_market_code in (${codes}) AND report_date_as_yyyy_mm_dd >= '${LOOKBACK_START}'`;
+async function fetchRows(where: string, minimumRows: number): Promise<CotRawRow[]> {
   const url = new URL(LEGACY_CFTC_URL);
   url.searchParams.set("$select", SELECT);
   url.searchParams.set("$where", where);
@@ -92,10 +90,24 @@ async function fetchLive(): Promise<CotRawRow[]> {
     throw new Error(`CFTC ${response.status}`);
   }
   const json: unknown = await response.json();
-  if (!Array.isArray(json) || json.length < 100) {
+  if (!Array.isArray(json) || json.length < minimumRows) {
     throw new Error("CFTC payload too small");
   }
   return coerceRows(json);
+}
+
+async function fetchLive(): Promise<CotRawRow[]> {
+  const codes = INSTRUMENTS.map((instrument) => `'${instrument.code}'`).join(",");
+  const where = `cftc_contract_market_code in (${codes}) AND report_date_as_yyyy_mm_dd >= '${LOOKBACK_START}'`;
+  return fetchRows(where, 100);
+}
+
+export async function loadInstrumentHistory(code: string): Promise<CotRawRow[]> {
+  if (!INSTRUMENTS.some((instrument) => instrument.code === code)) {
+    throw new Error("Unknown CFTC instrument code");
+  }
+  const where = `cftc_contract_market_code = '${code}' AND report_date_as_yyyy_mm_dd >= '${LOOKBACK_START}'`;
+  return fetchRows(where, 8);
 }
 
 export async function loadBoard(_force = false): Promise<CotBoard> {

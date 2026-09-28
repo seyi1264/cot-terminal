@@ -338,6 +338,12 @@ function DetailBody({
           />
         </section>
 
+        <details className="border-t border-border pt-5">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-fg [&::-webkit-details-marker]:hidden">
+            Market structure and methodology
+            <span className="text-xs font-normal text-muted">Story, zones, and process</span>
+          </summary>
+          <div className="mt-4 space-y-4">
         {methodology ? (
           <section className="rounded-lg border border-border bg-bg p-4">
             <p className="text-[11px] uppercase tracking-[0.14em] text-subtle">Market storyline</p>
@@ -407,10 +413,29 @@ function DetailBody({
           </section>
         ) : null}
 
+          </div>
+        </details>
+
         <SynthesisPanel report={report} />
 
-        <ZoneEditor report={report} />
+        <details open={marketConfirmation.status === "ready" && !marketConfirmation.zone} className="border-t border-border pt-4">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-fg [&::-webkit-details-marker]:hidden">
+            Manage price zones
+            <span className="text-xs font-normal text-muted">
+              {marketConfirmation.zone ? `${marketConfirmation.zone.direction} zone active` : marketConfirmation.status === "loading" ? "Checking saved zones" : "No active zone"}
+            </span>
+          </summary>
+          <div className="mt-4">
+            <ZoneEditor report={report} />
+          </div>
+        </details>
 
+        <details className="border-t border-border pt-4">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-fg [&::-webkit-details-marker]:hidden">
+            Positioning evidence
+            <span className="text-xs font-normal text-muted">Scores, groups, charts, and history</span>
+          </summary>
+          <div className="mt-4 space-y-6">
         {confluence ? (
           <section className="rounded-lg border border-border bg-bg p-4">
             <div className="flex items-center justify-between gap-4">
@@ -478,10 +503,6 @@ function DetailBody({
         </section>
 
         <section>
-          <NewsFeed symbol={report.pair} stance={report.stance} />
-        </section>
-
-        <section>
           <h3 className="mb-3 font-display text-lg text-fg">Last 13 weeks</h3>
           <div className="overflow-x-auto rounded-lg shadow-[var(--shadow-border)]">
             <table className="w-full min-w-[36rem] text-left text-xs">
@@ -508,6 +529,15 @@ function DetailBody({
             </table>
           </div>
         </section>
+          </div>
+        </details>
+
+        <details className="border-t border-border pt-4">
+          <summary className="cursor-pointer list-none text-sm font-medium text-fg [&::-webkit-details-marker]:hidden">Related market news</summary>
+          <div className="mt-4">
+            <NewsFeed symbol={report.pair} stance={report.stance} />
+          </div>
+        </details>
       </div>
     </div>
   );
@@ -529,18 +559,14 @@ function SynthesisPanel({ report }: { report: InstrumentReport }) {
       : "No directional trigger appears; the thesis remains a wait state rather than a trade.";
 
   return (
-    <section className="rounded-lg border border-accent/55 bg-[#272118] p-4 shadow-[0_0_0_1px_rgb(200_192_176_/_0.08)]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Complete picture</p>
-          <h3 className="mt-1 font-display text-xl text-fg">The thesis is {report.thesisStatus.toLowerCase()}</h3>
-        </div>
-        <span className="font-mono text-sm text-accent">{report.confluence ? `${report.confluence.score}/${report.confluence.total}` : "—"}</span>
+    <section className="border-l-2 border-accent/60 pl-4">
+      <div className="flex items-center justify-between gap-4">
+        <h3 className="text-sm font-semibold text-fg">Trade plan</h3>
+        <span className="font-mono text-xs text-muted">{report.confluence ? `${report.confluence.score}/${report.confluence.total} factors` : "No score"}</span>
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-fg">{report.storyline?.summary ?? report.body}</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-md bg-bg/60 p-3"><p className="text-[10px] uppercase tracking-[0.12em] text-bid">Watch for</p><p className="mt-1 text-sm leading-relaxed text-fg">{watchFor}</p></div>
-        <div className="rounded-md bg-bg/60 p-3"><p className="text-[10px] uppercase tracking-[0.12em] text-offer">Invalidation</p><p className="mt-1 text-sm leading-relaxed text-fg">{invalidate}</p></div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div><p className="text-[10px] uppercase tracking-[0.12em] text-bid">Watch for</p><p className="mt-1 text-sm leading-relaxed text-muted">{watchFor}</p></div>
+        <div><p className="text-[10px] uppercase tracking-[0.12em] text-offer">Thesis fails if</p><p className="mt-1 text-sm leading-relaxed text-muted">{invalidate}</p></div>
       </div>
     </section>
   );
@@ -641,6 +667,13 @@ function TradingSignalPanel({
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">{positioningWarning.title}</p>
         <p className="mt-1 text-xs leading-relaxed text-muted">{positioningWarning.summary}</p>
       </div>
+      <p className="mt-3 text-xs text-muted">
+        {market.currentPrice !== null ? `Live price: ${market.currentPrice} · refreshes every minute` : "Live price: unavailable"}
+        {market.zone ? ` · Saved zone: ${market.zone.lowerPrice}–${market.zone.upperPrice} ${market.zone.direction}` : " · Saved zone: none"}
+      </p>
+      <details className="mt-3 border-t border-border/70 pt-3">
+        <summary className="cursor-pointer list-none text-xs font-medium text-muted [&::-webkit-details-marker]:hidden">Timeframe and historical detail</summary>
+        <div className="mt-3 space-y-3">
       {market.priceAction ? (
         <div className="mt-3 space-y-2 text-xs text-muted">
           <p>{market.priceAction.summary}</p>
@@ -701,10 +734,8 @@ function TradingSignalPanel({
         <p className="rounded-md bg-bg/50 p-2 text-muted">Non-commercial large-spec book: <strong className="text-fg">{signal.institutional}</strong></p>
         <p className="rounded-md bg-bg/50 p-2 text-muted">Commercial hedger book (inverse context): <strong className="text-fg">{signal.speculators}</strong></p>
       </div>
-      <p className="mt-2 text-xs text-muted">
-        {market.currentPrice !== null ? `Live price: ${market.currentPrice} · refreshes every minute` : "Live price: unavailable"}
-        {market.zone ? ` · Saved zone: ${market.zone.lowerPrice}–${market.zone.upperPrice} ${market.zone.direction}` : " · Saved zone: none"}
-      </p>
+        </div>
+      </details>
     </section>
   );
 }
